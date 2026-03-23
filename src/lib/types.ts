@@ -36,10 +36,21 @@ export interface Registration {
   createdAt: string;
 }
 
+export type NativeLang = "ja" | "ko" | "en" | "zh" | "other";
+export type TargetLevel = 1 | 2 | 3 | 4 | 5 | 6;
+
+export interface TargetLang {
+  lang: NativeLang;
+  level: TargetLevel;
+}
+
 export interface User {
   id: string;
   name: string;
   email: string;
+  gender?: "male" | "female" | "other";
+  nativeLang?: NativeLang;
+  targetLangs?: TargetLang[];
   avatarUrl?: string;
   lineUserId?: string;
   role: "member" | "admin";
