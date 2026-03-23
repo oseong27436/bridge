@@ -3,21 +3,25 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
+import { useLanguage } from "@/context/language-context";
+import { translations, type Lang } from "@/lib/i18n";
 
-const NAV_LINKS = [
-  { href: "/", label: "HOME" },
-  { href: "/events", label: "EVENTS" },
-  { href: "/about", label: "ABOUT" },
-];
-
-const LANGS = [
-  { code: "en", label: "English", href: "/" },
-  { code: "ko", label: "한국어", href: "/" },
-  { code: "ja", label: "日本語", href: "/" },
+const LANGS: { code: Lang; label: string }[] = [
+  { code: "en", label: "English" },
+  { code: "ko", label: "한국어" },
+  { code: "ja", label: "日本語" },
 ];
 
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { lang, setLang } = useLanguage();
+  const tr = translations[lang];
+
+  const NAV_LINKS = [
+    { href: "/", label: tr.nav_home },
+    { href: "/events", label: tr.nav_events },
+    { href: "/about", label: tr.nav_about },
+  ];
 
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
@@ -26,8 +30,7 @@ export default function Header() {
           {/* Logo */}
           <Link
             href="/"
-            className="shrink-0 text-xl font-bold tracking-tight"
-            style={{ color: "oklch(0.65 0.21 42)" }}
+            className="shrink-0 text-xl font-bold tracking-tight text-primary"
           >
             Bridge Osaka
           </Link>
@@ -45,29 +48,28 @@ export default function Header() {
             ))}
           </nav>
 
-          {/* Right side */}
+          {/* Right: language + login */}
           <div className="hidden md:flex items-center gap-3">
-            {/* Language */}
-            <div className="flex items-center gap-1 text-sm text-gray-500">
-              {LANGS.map((lang, i) => (
-                <span key={lang.code} className="flex items-center gap-1">
-                  {i > 0 && <span className="text-gray-300">|</span>}
-                  <Link
-                    href={lang.href}
-                    className="hover:text-primary transition-colors"
+            <div className="flex items-center text-sm text-gray-500">
+              {LANGS.map((l, i) => (
+                <span key={l.code} className="flex items-center">
+                  {i > 0 && <span className="mx-1 text-gray-300">|</span>}
+                  <button
+                    onClick={() => setLang(l.code)}
+                    className={`hover:text-primary transition-colors ${
+                      lang === l.code ? "font-semibold text-primary" : ""
+                    }`}
                   >
-                    {lang.label}
-                  </Link>
+                    {l.label}
+                  </button>
                 </span>
               ))}
             </div>
-
-            {/* Login */}
             <Link
               href="/auth/login"
               className="rounded-full border-2 border-primary px-4 py-1 text-sm font-semibold text-primary hover:bg-primary hover:text-white transition-colors"
             >
-              Login
+              {tr.login}
             </Link>
           </div>
 
@@ -77,7 +79,7 @@ export default function Header() {
               href="/auth/login"
               className="rounded-full border-2 border-primary px-3 py-1 text-xs font-semibold text-primary"
             >
-              Login
+              {tr.login}
             </Link>
             <button
               className="flex h-8 w-8 items-center justify-center text-gray-600"
@@ -103,13 +105,20 @@ export default function Header() {
                 {link.label}
               </Link>
             ))}
-            <div className="border-t border-gray-100 pt-2 mt-1 flex gap-3 px-3 text-sm text-gray-500">
-              {LANGS.map((lang, i) => (
-                <span key={lang.code} className="flex items-center gap-1">
+            <div className="border-t border-gray-100 pt-2 mt-1 flex gap-2 px-3">
+              {LANGS.map((l, i) => (
+                <span key={l.code} className="flex items-center gap-1">
                   {i > 0 && <span className="text-gray-300">|</span>}
-                  <Link href={lang.href} className="hover:text-primary">
-                    {lang.label}
-                  </Link>
+                  <button
+                    onClick={() => { setLang(l.code); setMobileOpen(false); }}
+                    className={`text-sm transition-colors ${
+                      lang === l.code
+                        ? "font-semibold text-primary"
+                        : "text-gray-500 hover:text-primary"
+                    }`}
+                  >
+                    {l.label}
+                  </button>
                 </span>
               ))}
             </div>
