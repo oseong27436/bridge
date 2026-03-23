@@ -1,277 +1,211 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { LayoutGrid, List, ChevronLeft, ChevronRight } from "lucide-react";
+import Link from "next/link";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
-import EventCard from "@/components/events/event-card";
 import { MOCK_EVENTS } from "@/lib/mock-data";
 import type { EventCategory } from "@/lib/types";
 
-const CATEGORIES: { value: EventCategory | "all"; label: string }[] = [
-  { value: "all", label: "All" },
-  { value: "meetup", label: "Meetup" },
-  { value: "party", label: "Party" },
-  { value: "food", label: "Food" },
-  { value: "culture", label: "Culture" },
-  { value: "sports", label: "Sports" },
+const QUICK_FILTERS = [
+  { label: "Today", value: "today" },
+  { label: "Tomorrow", value: "tomorrow" },
+  { label: "Meetup", value: "meetup" },
+  { label: "Party", value: "party" },
+  { label: "Food", value: "food" },
+  { label: "Culture", value: "culture" },
+  { label: "Korean", value: "ko" },
+  { label: "Japanese", value: "ja" },
+  { label: "English", value: "en" },
 ];
-
-const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MONTHS = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December",
-];
-
-function getCalendarDays(year: number, month: number) {
-  const firstDay = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const daysInPrev = new Date(year, month, 0).getDate();
-
-  const cells: { day: number; current: boolean }[] = [];
-
-  // Leading days from previous month
-  for (let i = firstDay - 1; i >= 0; i--) {
-    cells.push({ day: daysInPrev - i, current: false });
-  }
-  // Current month
-  for (let d = 1; d <= daysInMonth; d++) {
-    cells.push({ day: d, current: true });
-  }
-  // Trailing days to fill 6 rows
-  const remaining = 42 - cells.length;
-  for (let d = 1; d <= remaining; d++) {
-    cells.push({ day: d, current: false });
-  }
-
-  return cells;
-}
 
 export default function EventsPage() {
-  const today = new Date();
-  const [view, setView] = useState<"calendar" | "list">("calendar");
-  const [category, setCategory] = useState<EventCategory | "all">("all");
-  const [calYear, setCalYear] = useState(today.getFullYear());
-  const [calMonth, setCalMonth] = useState(today.getMonth());
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [typeFilter, setTypeFilter] = useState<EventCategory | "all">("all");
+  const [activeQuick, setActiveQuick] = useState<string | null>(null);
 
   const filteredEvents = useMemo(() => {
     return MOCK_EVENTS.filter((e) => {
-      if (category !== "all" && e.category !== category) return false;
-      if (selectedDate && e.date !== selectedDate) return false;
+      if (typeFilter !== "all" && e.category !== typeFilter) return false;
       return true;
     });
-  }, [category, selectedDate]);
-
-  const eventDateSet = useMemo(() => {
-    return new Set(MOCK_EVENTS.map((e) => e.date));
-  }, []);
-
-  const calendarDays = getCalendarDays(calYear, calMonth);
-
-  function prevMonth() {
-    if (calMonth === 0) {
-      setCalMonth(11);
-      setCalYear((y) => y - 1);
-    } else {
-      setCalMonth((m) => m - 1);
-    }
-    setSelectedDate(null);
-  }
-
-  function nextMonth() {
-    if (calMonth === 11) {
-      setCalMonth(0);
-      setCalYear((y) => y + 1);
-    } else {
-      setCalMonth((m) => m + 1);
-    }
-    setSelectedDate(null);
-  }
-
-  function handleDayClick(day: number) {
-    const dateStr = `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-    if (!eventDateSet.has(dateStr)) return;
-    setSelectedDate((prev) => (prev === dateStr ? null : dateStr));
-  }
-
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  }, [typeFilter]);
 
   return (
     <>
       <Header />
-      <main className="flex-1 mx-auto w-full max-w-6xl px-4 sm:px-6 py-8">
-        {/* Page header */}
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold text-foreground">Events</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            {MOCK_EVENTS.length} upcoming events in Osaka
-          </p>
-        </div>
+      <main className="flex-1">
 
-        {/* Filters + view toggle */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-          {/* Category filters */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 -mx-1 px-1">
-            {CATEGORIES.map((cat) => (
-              <button
-                key={cat.value}
-                onClick={() => {
-                  setCategory(cat.value);
-                  setSelectedDate(null);
-                }}
-                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
-                  category === cat.value
-                    ? "bg-primary text-white"
-                    : "bg-muted text-muted-foreground hover:bg-muted/80"
-                }`}
-              >
-                {cat.label}
-              </button>
-            ))}
+        {/* ── PAGE HERO ──────────────────────────────────────────────── */}
+        <section className="relative h-56 sm:h-72 overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="https://images.unsplash.com/photo-1514190051997-0f6f39ca5cde?w=1600&q=80"
+            alt="Osaka events"
+            className="absolute inset-0 h-full w-full object-cover"
+          />
+          <div className="absolute inset-0 bg-black/50" />
+          <div className="relative z-10 h-full flex flex-col justify-end max-w-6xl mx-auto px-4 sm:px-6 pb-6">
+            <nav className="text-xs text-white/60 mb-2">
+              <Link href="/" className="hover:text-white">Home</Link>
+              <span className="mx-1">/</span>
+              <span className="text-white">Event Calendar</span>
+            </nav>
+            <h1 className="text-3xl sm:text-4xl font-extrabold text-white">
+              Osaka Events
+            </h1>
           </div>
 
-          {/* View toggle */}
-          <div className="flex items-center gap-1 rounded-lg border border-border p-0.5 shrink-0 self-start sm:self-auto">
-            <button
-              onClick={() => setView("calendar")}
-              className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors ${
-                view === "calendar"
-                  ? "bg-primary text-white"
-                  : "text-muted-foreground hover:bg-muted"
-              }`}
-              aria-label="Calendar view"
-            >
-              <LayoutGrid className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={() => setView("list")}
-              className={`flex h-7 w-7 items-center justify-center rounded-md transition-colors ${
-                view === "list"
-                  ? "bg-primary text-white"
-                  : "text-muted-foreground hover:bg-muted"
-              }`}
-              aria-label="List view"
-            >
-              <List className="h-3.5 w-3.5" />
-            </button>
-          </div>
-        </div>
-
-        {view === "calendar" && (
-          <div className="mb-8">
-            {/* Calendar header */}
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-semibold text-foreground">
-                {MONTHS[calMonth]} {calYear}
-              </h2>
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={prevMonth}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted transition-colors"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={nextMonth}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted transition-colors"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
+          {/* Filter bar overlapping bottom of hero */}
+          <div className="absolute bottom-0 left-0 right-0 z-10 translate-y-1/2">
+            <div className="mx-auto max-w-6xl px-4 sm:px-6">
+              <div className="flex flex-col sm:flex-row shadow-lg rounded-lg overflow-hidden">
+                {/* Left: dropdowns */}
+                <div className="bg-white px-4 py-3 flex flex-wrap gap-2 flex-1 items-center">
+                  <select
+                    className="border border-gray-300 rounded px-3 py-1.5 text-sm text-gray-700"
+                    value={typeFilter}
+                    onChange={(e) => setTypeFilter(e.target.value as EventCategory | "all")}
+                  >
+                    <option value="all">All Types</option>
+                    <option value="meetup">Meetup</option>
+                    <option value="party">Party</option>
+                    <option value="food">Food</option>
+                    <option value="culture">Culture</option>
+                    <option value="sports">Sports</option>
+                  </select>
+                  <select className="border border-gray-300 rounded px-3 py-1.5 text-sm text-gray-700">
+                    <option>All Days</option>
+                    <option>This Weekend</option>
+                    <option>Next Week</option>
+                  </select>
+                  <button className="rounded-full bg-primary px-5 py-1.5 text-sm font-bold text-white hover:bg-primary/90 transition-colors">
+                    Search
+                  </button>
+                </div>
+                {/* Right: text search */}
+                <div className="bg-primary px-4 py-3 flex flex-col gap-1 min-w-[240px]">
+                  <p className="text-white text-xs font-semibold">What event are you looking for?</p>
+                  <div className="flex items-center gap-2 bg-white rounded px-3 py-1.5">
+                    <input
+                      type="text"
+                      placeholder="Search location, meetup, host..."
+                      className="flex-1 text-xs outline-none text-gray-700 bg-transparent"
+                    />
+                    <svg className="h-3.5 w-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </div>
+                </div>
               </div>
             </div>
-
-            {/* Day labels */}
-            <div className="grid grid-cols-7 mb-1">
-              {DAYS.map((d) => (
-                <div
-                  key={d}
-                  className="text-center text-xs font-medium text-muted-foreground py-1"
-                >
-                  {d}
-                </div>
-              ))}
-            </div>
-
-            {/* Calendar grid */}
-            <div className="grid grid-cols-7 gap-0.5">
-              {calendarDays.map((cell, i) => {
-                const dateStr = cell.current
-                  ? `${calYear}-${String(calMonth + 1).padStart(2, "0")}-${String(cell.day).padStart(2, "0")}`
-                  : null;
-                const hasEvent = dateStr ? eventDateSet.has(dateStr) : false;
-                const isToday = dateStr === todayStr;
-                const isSelected = dateStr !== null && dateStr === selectedDate;
-
-                return (
-                  <button
-                    key={i}
-                    onClick={() => cell.current && handleDayClick(cell.day)}
-                    disabled={!cell.current || !hasEvent}
-                    className={`relative aspect-square flex flex-col items-center justify-center rounded-lg text-sm transition-colors
-                      ${!cell.current ? "text-muted-foreground/30 cursor-default" : ""}
-                      ${cell.current && !hasEvent ? "text-foreground cursor-default" : ""}
-                      ${cell.current && hasEvent && !isSelected ? "hover:bg-primary/10 cursor-pointer font-medium text-primary" : ""}
-                      ${isSelected ? "bg-primary text-white font-semibold" : ""}
-                      ${isToday && !isSelected ? "ring-1 ring-primary rounded-lg" : ""}
-                    `}
-                  >
-                    {cell.day}
-                    {hasEvent && !isSelected && (
-                      <span className="absolute bottom-1 left-1/2 -translate-x-1/2 h-1 w-1 rounded-full bg-primary" />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            {selectedDate && (
-              <p className="mt-3 text-xs text-muted-foreground">
-                Showing events on{" "}
-                {new Date(selectedDate).toLocaleDateString("en-US", {
-                  weekday: "long",
-                  month: "long",
-                  day: "numeric",
-                })}
-                {" · "}
-                <button
-                  onClick={() => setSelectedDate(null)}
-                  className="text-primary hover:underline"
-                >
-                  Clear
-                </button>
-              </p>
-            )}
           </div>
-        )}
+        </section>
 
-        {/* Event grid / list */}
-        {filteredEvents.length > 0 ? (
-          <div
-            className={
-              view === "calendar"
-                ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4"
-                : "flex flex-col gap-3"
-            }
-          >
+        {/* Spacer for filter bar overflow */}
+        <div className="h-16 sm:h-10 bg-gray-50" />
+
+        {/* ── QUICK FILTERS ──────────────────────────────────────────── */}
+        <div className="bg-gray-50 border-b border-gray-200">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6 py-3">
+            <ul className="flex flex-wrap gap-2">
+              {QUICK_FILTERS.map((f) => (
+                <li key={f.value}>
+                  <button
+                    onClick={() => setActiveQuick(activeQuick === f.value ? null : f.value)}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                      activeQuick === f.value
+                        ? "bg-primary border-primary text-white"
+                        : "border-gray-300 bg-white text-gray-600 hover:border-primary hover:text-primary"
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        {/* ── EVENT LIST ─────────────────────────────────────────────── */}
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-6">
+          <p className="text-sm text-gray-500 mb-4">
+            Events found for you:{" "}
+            <strong className="text-gray-800">{filteredEvents.length}</strong>
+          </p>
+
+          <div className="space-y-3">
             {filteredEvents.map((event) => (
-              <EventCard key={event.id} event={event} lang="en" />
+              <Link
+                key={event.id}
+                href={`/events/${event.id}`}
+                className="group flex gap-4 rounded-lg border border-gray-200 bg-white p-4 hover:shadow-md transition-shadow"
+              >
+                {/* Thumbnail */}
+                <div className="w-28 sm:w-36 shrink-0 aspect-square rounded-md overflow-hidden bg-gray-100">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={event.imageUrl}
+                    alt={event.title.en}
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+
+                {/* Content */}
+                <div className="flex-1 min-w-0 flex flex-col justify-between">
+                  <div>
+                    {/* Badges */}
+                    <div className="flex flex-wrap gap-1 mb-1.5">
+                      <span className="rounded text-[10px] font-semibold bg-orange-100 text-orange-600 px-1.5 py-0.5 capitalize">
+                        {event.category}
+                      </span>
+                      <span className="rounded text-[10px] font-semibold bg-gray-100 text-gray-500 px-1.5 py-0.5">
+                        Osaka
+                      </span>
+                    </div>
+                    {/* Title */}
+                    <h3 className="text-sm sm:text-base font-bold text-gray-900 group-hover:text-primary transition-colors line-clamp-2 leading-snug mb-1">
+                      {event.title.en}
+                    </h3>
+                    {/* Date/time */}
+                    <p className="text-xs sm:text-sm text-gray-500">
+                      {new Date(event.date).toLocaleDateString("en-US", {
+                        weekday: "short",
+                        month: "short",
+                        day: "numeric",
+                      })}{" "}
+                      | {event.timeStart} - {event.timeEnd}
+                    </p>
+                    {/* Host */}
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <div className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center text-[9px] font-bold text-primary shrink-0">
+                        B
+                      </div>
+                      <span className="text-xs text-gray-500">Bridge Osaka</span>
+                    </div>
+                  </div>
+
+                  {/* Bottom row: rating + going */}
+                  <div className="flex items-center gap-3 mt-2">
+                    <div className="flex items-center gap-1 text-xs text-gray-600">
+                      <span className="text-yellow-400">★</span>
+                      <span className="font-semibold">4.8</span>
+                      <span className="text-gray-400">(12)</span>
+                    </div>
+                    <span className="text-xs font-semibold text-gray-600">
+                      Going {event.registrationCount}
+                    </span>
+                    {event.capacity !== null && (
+                      <span className="text-xs text-gray-400">
+                        / {event.capacity} spots
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </Link>
             ))}
           </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <p className="text-muted-foreground text-sm">No events found.</p>
-            <button
-              onClick={() => {
-                setCategory("all");
-                setSelectedDate(null);
-              }}
-              className="mt-2 text-sm text-primary hover:underline"
-            >
-              Clear filters
-            </button>
-          </div>
-        )}
+        </div>
+
       </main>
       <Footer />
     </>

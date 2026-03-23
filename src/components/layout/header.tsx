@@ -2,46 +2,43 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Menu, X, Globe, CalendarDays } from "lucide-react";
+import { Menu, X } from "lucide-react";
 
 const NAV_LINKS = [
-  { href: "/", label: "Home" },
-  { href: "/events", label: "Events" },
-  { href: "/about", label: "About" },
+  { href: "/", label: "HOME" },
+  { href: "/events", label: "EVENTS" },
+  { href: "/about", label: "ABOUT" },
 ];
 
 const LANGS = [
-  { code: "ja", label: "日本語" },
-  { code: "ko", label: "한국어" },
-  { code: "en", label: "English" },
+  { code: "en", label: "English", href: "/" },
+  { code: "ko", label: "한국어", href: "/" },
+  { code: "ja", label: "日本語", href: "/" },
 ];
 
 export default function Header() {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [langOpen, setLangOpen] = useState(false);
-  const [currentLang, setCurrentLang] = useState("en");
-
-  const currentLangLabel = LANGS.find((l) => l.code === currentLang)?.label ?? "English";
 
   return (
-    <header className="sticky top-0 z-50 bg-white border-b border-border">
+    <header className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        <div className="flex h-14 items-center justify-between">
+        <div className="flex h-14 items-center justify-between gap-6">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 shrink-0">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-              <CalendarDays className="h-4 w-4 text-white" />
-            </div>
-            <span className="text-lg font-bold tracking-tight text-foreground">Bridge</span>
+          <Link
+            href="/"
+            className="shrink-0 text-xl font-bold tracking-tight"
+            style={{ color: "oklch(0.65 0.21 42)" }}
+          >
+            Bridge Osaka
           </Link>
 
           {/* Desktop nav */}
-          <nav className="hidden md:flex items-center gap-6">
+          <nav className="hidden md:flex items-center gap-7 flex-1">
             {NAV_LINKS.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                className="text-sm font-semibold tracking-wide text-gray-700 hover:text-primary transition-colors"
               >
                 {link.label}
               </Link>
@@ -49,66 +46,44 @@ export default function Header() {
           </nav>
 
           {/* Right side */}
-          <div className="flex items-center gap-2">
-            {/* Language picker */}
-            <div className="relative hidden sm:block">
-              <button
-                onClick={() => setLangOpen(!langOpen)}
-                className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-              >
-                <Globe className="h-3.5 w-3.5" />
-                <span>{currentLangLabel}</span>
-              </button>
-
-              {langOpen && (
-                <>
-                  <div
-                    className="fixed inset-0 z-10"
-                    onClick={() => setLangOpen(false)}
-                  />
-                  <div className="absolute right-0 z-20 mt-1 w-32 rounded-lg border border-border bg-white py-1 shadow-md">
-                    {LANGS.map((lang) => (
-                      <button
-                        key={lang.code}
-                        onClick={() => {
-                          setCurrentLang(lang.code);
-                          setLangOpen(false);
-                        }}
-                        className={`w-full px-3 py-1.5 text-left text-sm transition-colors hover:bg-muted ${
-                          currentLang === lang.code
-                            ? "text-primary font-medium"
-                            : "text-foreground"
-                        }`}
-                      >
-                        {lang.label}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
+          <div className="hidden md:flex items-center gap-3">
+            {/* Language */}
+            <div className="flex items-center gap-1 text-sm text-gray-500">
+              {LANGS.map((lang, i) => (
+                <span key={lang.code} className="flex items-center gap-1">
+                  {i > 0 && <span className="text-gray-300">|</span>}
+                  <Link
+                    href={lang.href}
+                    className="hover:text-primary transition-colors"
+                  >
+                    {lang.label}
+                  </Link>
+                </span>
+              ))}
             </div>
 
-            {/* Auth buttons */}
+            {/* Login */}
             <Link
               href="/auth/login"
-              className="hidden sm:block rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              className="rounded-full border-2 border-primary px-4 py-1 text-sm font-semibold text-primary hover:bg-primary hover:text-white transition-colors"
             >
               Login
             </Link>
-            <Link
-              href="/auth/signup"
-              className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-white hover:bg-primary/90 transition-colors"
-            >
-              Sign up
-            </Link>
+          </div>
 
-            {/* Mobile menu toggle */}
-            <button
-              className="ml-1 flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted transition-colors md:hidden"
-              onClick={() => setMobileOpen(!mobileOpen)}
-              aria-label="Toggle menu"
+          {/* Mobile */}
+          <div className="flex md:hidden items-center gap-2">
+            <Link
+              href="/auth/login"
+              className="rounded-full border-2 border-primary px-3 py-1 text-xs font-semibold text-primary"
             >
-              {mobileOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+              Login
+            </Link>
+            <button
+              className="flex h-8 w-8 items-center justify-center text-gray-600"
+              onClick={() => setMobileOpen(!mobileOpen)}
+            >
+              {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
           </div>
         </div>
@@ -116,46 +91,27 @@ export default function Header() {
 
       {/* Mobile menu */}
       {mobileOpen && (
-        <div className="border-t border-border bg-white md:hidden">
+        <div className="border-t border-gray-200 bg-white md:hidden">
           <div className="mx-auto max-w-6xl px-4 py-3 space-y-1">
             {NAV_LINKS.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
                 onClick={() => setMobileOpen(false)}
-                className="block rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                className="block px-3 py-2 text-sm font-semibold text-gray-700 hover:text-primary"
               >
                 {link.label}
               </Link>
             ))}
-            <div className="border-t border-border pt-2 mt-2">
-              <div className="flex gap-1">
-                {LANGS.map((lang) => (
-                  <button
-                    key={lang.code}
-                    onClick={() => {
-                      setCurrentLang(lang.code);
-                      setMobileOpen(false);
-                    }}
-                    className={`flex-1 rounded-md py-1.5 text-xs font-medium transition-colors ${
-                      currentLang === lang.code
-                        ? "bg-primary/10 text-primary"
-                        : "text-muted-foreground hover:bg-muted"
-                    }`}
-                  >
+            <div className="border-t border-gray-100 pt-2 mt-1 flex gap-3 px-3 text-sm text-gray-500">
+              {LANGS.map((lang, i) => (
+                <span key={lang.code} className="flex items-center gap-1">
+                  {i > 0 && <span className="text-gray-300">|</span>}
+                  <Link href={lang.href} className="hover:text-primary">
                     {lang.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="pt-1">
-              <Link
-                href="/auth/login"
-                onClick={() => setMobileOpen(false)}
-                className="block rounded-md px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted"
-              >
-                Login
-              </Link>
+                  </Link>
+                </span>
+              ))}
             </div>
           </div>
         </div>
