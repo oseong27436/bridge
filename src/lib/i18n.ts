@@ -105,6 +105,10 @@ export const translations = {
     level_4: "中上級",
     level_5: "上級",
     level_6: "ネイティブ",
+
+    nav_my_reservations: "予約管理",
+    nav_my_profile: "プロフィール",
+    nav_logout: "ログアウト",
   },
 
   ko: {
@@ -202,6 +206,10 @@ export const translations = {
     level_4: "중상급",
     level_5: "고급",
     level_6: "원어민",
+
+    nav_my_reservations: "내 예약",
+    nav_my_profile: "내 프로필",
+    nav_logout: "로그아웃",
   },
 
   en: {
@@ -299,6 +307,10 @@ export const translations = {
     level_4: "Upper-Intermediate",
     level_5: "Advanced",
     level_6: "Native",
+
+    nav_my_reservations: "My Reservations",
+    nav_my_profile: "My Profile",
+    nav_logout: "Log Out",
   },
 } as const;
 
