@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
-import { MOCK_EVENTS } from "@/lib/mock-data";
+import { getEvents, eventTitle, eventLocation, type DbEvent } from "@/lib/db";
 import { useLanguage } from "@/context/language-context";
 import { translations } from "@/lib/i18n";
 import type { EventCategory } from "@/lib/types";
@@ -30,13 +30,20 @@ export default function EventsPage() {
   const { lang } = useLanguage();
   const tr = translations[lang];
 
+  const [events, setEvents] = useState<DbEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+
   const today = new Date();
   const [calYear, setCalYear] = useState(today.getFullYear());
   const [calMonth, setCalMonth] = useState(today.getMonth());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [category, setCategory] = useState<EventCategory | "all">("all");
 
-  const eventDates = useMemo(() => new Set(MOCK_EVENTS.map((e) => e.date)), []);
+  useEffect(() => {
+    getEvents().then((data) => { setEvents(data); setLoading(false); });
+  }, []);
+
+  const eventDates = useMemo(() => new Set(events.map((e) => e.date)), [events]);
   const calendarDays = getCalendarDays(calYear, calMonth);
   const todayStr = toDateStr(today.getFullYear(), today.getMonth(), today.getDate());
 
@@ -50,12 +57,12 @@ export default function EventsPage() {
   }
 
   const filteredEvents = useMemo(() =>
-    MOCK_EVENTS.filter((e) => {
+    events.filter((e) => {
       if (category !== "all" && e.category !== category) return false;
       if (selectedDate && e.date !== selectedDate) return false;
       return true;
     }),
-    [category, selectedDate]
+    [events, category, selectedDate]
   );
 
   const CATEGORY_FILTERS = [
@@ -181,7 +188,20 @@ export default function EventsPage() {
           </p>
 
           {/* ── EVENT LIST ──────────────────────────────────────── */}
-          {filteredEvents.length > 0 ? (
+          {loading ? (
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex gap-4 rounded-xl border border-gray-200 bg-white p-4 animate-pulse">
+                  <div className="w-24 sm:w-32 shrink-0 aspect-square rounded-lg bg-gray-100" />
+                  <div className="flex-1 space-y-2 py-1">
+                    <div className="h-3 bg-gray-100 rounded w-1/4" />
+                    <div className="h-4 bg-gray-100 rounded w-3/4" />
+                    <div className="h-3 bg-gray-100 rounded w-1/2" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : filteredEvents.length > 0 ? (
             <div className="space-y-3">
               {filteredEvents.map((event) => (
                 <Link
@@ -191,7 +211,7 @@ export default function EventsPage() {
                 >
                   <div className="w-24 sm:w-32 shrink-0 aspect-square rounded-lg overflow-hidden bg-gray-100">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={event.imageUrl} alt={event.title[lang]} className="h-full w-full object-cover" />
+                    <img src={event.image_url} alt={eventTitle(event, lang)} className="h-full w-full object-cover" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap gap-1 mb-1.5">
@@ -199,34 +219,43 @@ export default function EventsPage() {
                         {tr[`cat_${event.category}` as keyof typeof tr] ?? event.category}
                       </span>
                       <span className="rounded text-[10px] font-bold bg-gray-100 text-gray-500 px-1.5 py-0.5">
-                        {event.location[lang].split("（")[0].split("(")[0].trim()}
+                        {eventLocation(event, lang).split("（")[0].split("(")[0].trim()}
                       </span>
                     </div>
                     <h3 className="text-sm sm:text-base font-bold text-gray-900 group-hover:text-primary transition-colors leading-snug mb-1">
-                      {event.title[lang]}
+                      {eventTitle(event, lang)}
                     </h3>
                     <p className="text-xs text-gray-500">
                       {new Date(event.date + "T00:00:00").toLocaleDateString(
                         lang === "ja" ? "ja-JP" : lang === "ko" ? "ko-KR" : "en-US",
                         { month: "numeric", day: "numeric", weekday: "short" }
                       )}
-                      {event.timeEnd
-                        ? ` · ${event.timeStart}〜${event.timeEnd}`
-                        : ` · ${event.timeStart}〜`}
+                      {event.time_end
+                        ? ` · ${event.time_start}〜${event.time_end}`
+                        : ` · ${event.time_start}〜`}
                     </p>
-                    <p className="text-xs text-gray-400 mt-0.5">📍 {event.location[lang]}</p>
-                    <p className="text-xs font-semibold text-gray-600 mt-2">
-                      {tr.going} {event.registrationCount}
-                      {event.capacity !== null && ` / ${event.capacity}${tr.spots}`}
-                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5">📍 {eventLocation(event, lang)}</p>
+                    {event.capacity !== null && (
+                      <p className="text-xs font-semibold text-gray-600 mt-2">
+                        {tr.going} / {event.capacity}{tr.spots}
+                      </p>
+                    )}
                   </div>
                 </Link>
               ))}
             </div>
           ) : (
-            <div className="text-center py-16 text-gray-400 text-sm">
-              No events.{" "}
-              <button onClick={() => { setCategory("all"); setSelectedDate(null); }} className="text-primary hover:underline">{tr.clear}</button>
+            <div className="text-center py-16 text-gray-400">
+              <div className="text-4xl mb-3">📅</div>
+              <p className="text-sm font-medium text-gray-500">
+                {lang === "ja" ? "イベントがありません" : lang === "ko" ? "이벤트가 없습니다" : "No events found"}
+              </p>
+              <button
+                onClick={() => { setCategory("all"); setSelectedDate(null); }}
+                className="mt-3 text-xs text-primary hover:underline"
+              >
+                {tr.clear}
+              </button>
             </div>
           )}
         </div>
