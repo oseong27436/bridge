@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import Header from "@/components/layout/header";
@@ -26,7 +26,7 @@ interface TargetLangEntry {
   level: TargetLevel;
 }
 
-export default function SignupPage() {
+function SignupContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isSso = searchParams.get("sso") === "1";
@@ -436,5 +436,13 @@ export default function SignupPage() {
       </main>
       <Footer />
     </>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense>
+      <SignupContent />
+    </Suspense>
   );
 }
