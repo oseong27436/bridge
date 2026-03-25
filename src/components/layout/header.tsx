@@ -15,22 +15,39 @@ const LANGS: { code: Lang; label: string }[] = [
 ];
 
 export default function Header() {
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const { lang, setLang } = useLanguage();
   const tr = translations[lang];
   const router = useRouter();
 
   useEffect(() => {
     const supabase = createClient();
-    supabase.auth.getSession().then(({ data: { session } }) => setUser(session?.user ?? null));
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => setUser(session?.user ?? null));
+
+    async function loadUser(userId: string | undefined) {
+      if (!userId) { setIsAdmin(false); return; }
+      const { data } = await supabase.from("bridge_profiles").select("role").eq("id", userId).single();
+      setIsAdmin(data?.role === "admin");
+    }
+
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      loadUser(session?.user?.id);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      setUser(session?.user ?? null);
+      loadUser(session?.user?.id);
+    });
+
     return () => subscription.unsubscribe();
   }, []);
 
   async function handleLogout() {
     const supabase = createClient();
     await supabase.auth.signOut();
+    setMenuOpen(false);
     router.push("/");
   }
 
@@ -45,28 +62,13 @@ export default function Header() {
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="flex h-14 items-center justify-between gap-6">
           {/* Logo */}
-          <Link
-            href="/"
-            className="shrink-0 text-xl font-bold tracking-tight text-primary"
-          >
+          <Link href="/" className="shrink-0 text-xl font-bold tracking-tight text-primary">
             Bridge Osaka
           </Link>
 
-          {/* Desktop nav */}
-          <nav className="hidden md:flex items-center gap-7 flex-1">
-            {NAV_LINKS.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="text-sm font-semibold tracking-wide text-gray-700 hover:text-primary transition-colors"
-              >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
-
-          {/* Right: language + login/user */}
-          <div className="hidden md:flex items-center gap-3">
+          {/* Right: language + hamburger */}
+          <div className="flex items-center gap-3">
+            {/* Language switcher */}
             <div className="flex items-center text-sm text-gray-500">
               {LANGS.map((l, i) => (
                 <span key={l.code} className="flex items-center">
@@ -82,120 +84,85 @@ export default function Header() {
                 </span>
               ))}
             </div>
-            {user ? (
-              <>
-                <Link
-                  href="/my/reservations"
-                  className="text-sm font-semibold text-gray-700 hover:text-primary transition-colors"
-                >
-                  {tr.nav_my_reservations}
-                </Link>
-                <Link
-                  href="/my/profile"
-                  className="text-sm font-semibold text-gray-700 hover:text-primary transition-colors"
-                >
-                  {tr.nav_my_profile}
-                </Link>
-                <button
-                  onClick={handleLogout}
-                  className="rounded-full border-2 border-gray-400 px-4 py-1 text-sm font-semibold text-gray-600 hover:border-primary hover:text-primary transition-colors"
-                >
-                  {tr.nav_logout}
-                </button>
-              </>
-            ) : (
-              <Link
-                href="/auth/login"
-                className="rounded-full border-2 border-primary px-4 py-1 text-sm font-semibold text-primary hover:bg-primary hover:text-white transition-colors"
-              >
-                {tr.login}
-              </Link>
-            )}
-          </div>
 
-          {/* Mobile */}
-          <div className="flex md:hidden items-center gap-2">
-            {!user && (
-              <Link
-                href="/auth/login"
-                className="rounded-full border-2 border-primary px-3 py-1 text-xs font-semibold text-primary"
-              >
-                {tr.login}
-              </Link>
-            )}
+            {/* Hamburger */}
             <button
-              className="flex h-8 w-8 items-center justify-center text-gray-600"
-              onClick={() => setMobileOpen(!mobileOpen)}
+              className="flex h-9 w-9 items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100 transition-colors"
+              onClick={() => setMenuOpen(!menuOpen)}
             >
-              {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              {menuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Mobile menu */}
-      {mobileOpen && (
-        <div className="border-t border-gray-200 bg-white md:hidden">
-          <div className="mx-auto max-w-6xl px-4 py-3 space-y-1">
+      {/* Dropdown menu */}
+      {menuOpen && (
+        <div className="border-t border-gray-200 bg-white shadow-lg">
+          <div className="mx-auto max-w-6xl px-4 py-3 space-y-0.5">
             {NAV_LINKS.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                onClick={() => setMobileOpen(false)}
-                className="block px-3 py-2 text-sm font-semibold text-gray-700 hover:text-primary"
+                onClick={() => setMenuOpen(false)}
+                className="block px-3 py-2.5 text-sm font-semibold text-gray-700 hover:text-primary hover:bg-gray-50 rounded-lg transition-colors"
               >
                 {link.label}
               </Link>
             ))}
+
+            <div className="border-t border-gray-100 my-1" />
+
             {user ? (
               <>
                 <Link
                   href="/my/reservations"
-                  onClick={() => setMobileOpen(false)}
-                  className="block px-3 py-2 text-sm font-semibold text-gray-700 hover:text-primary"
+                  onClick={() => setMenuOpen(false)}
+                  className="block px-3 py-2.5 text-sm font-semibold text-gray-700 hover:text-primary hover:bg-gray-50 rounded-lg transition-colors"
                 >
                   {tr.nav_my_reservations}
                 </Link>
                 <Link
                   href="/my/profile"
-                  onClick={() => setMobileOpen(false)}
-                  className="block px-3 py-2 text-sm font-semibold text-gray-700 hover:text-primary"
+                  onClick={() => setMenuOpen(false)}
+                  className="block px-3 py-2.5 text-sm font-semibold text-gray-700 hover:text-primary hover:bg-gray-50 rounded-lg transition-colors"
                 >
                   {tr.nav_my_profile}
                 </Link>
+                {isAdmin && (
+                  <Link
+                    href="/admin"
+                    onClick={() => setMenuOpen(false)}
+                    className="block px-3 py-2.5 text-sm font-semibold text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+                  >
+                    ⚙ Admin
+                  </Link>
+                )}
                 <button
-                  onClick={() => { setMobileOpen(false); handleLogout(); }}
-                  className="block w-full text-left px-3 py-2 text-sm font-semibold text-gray-500 hover:text-primary"
+                  onClick={handleLogout}
+                  className="block w-full text-left px-3 py-2.5 text-sm font-semibold text-gray-500 hover:text-primary hover:bg-gray-50 rounded-lg transition-colors"
                 >
                   {tr.nav_logout}
                 </button>
               </>
             ) : (
-              <Link
-                href="/auth/login"
-                onClick={() => setMobileOpen(false)}
-                className="block px-3 py-2 text-sm font-semibold text-primary"
-              >
-                {tr.login}
-              </Link>
+              <>
+                <Link
+                  href="/auth/login"
+                  onClick={() => setMenuOpen(false)}
+                  className="block px-3 py-2.5 text-sm font-semibold text-primary hover:bg-orange-50 rounded-lg transition-colors"
+                >
+                  {tr.login}
+                </Link>
+                <Link
+                  href="/auth/signup"
+                  onClick={() => setMenuOpen(false)}
+                  className="block px-3 py-2.5 text-sm font-semibold text-gray-700 hover:text-primary hover:bg-gray-50 rounded-lg transition-colors"
+                >
+                  {tr.signup}
+                </Link>
+              </>
             )}
-            <div className="border-t border-gray-100 pt-2 mt-1 flex gap-2 px-3">
-              {LANGS.map((l, i) => (
-                <span key={l.code} className="flex items-center gap-1">
-                  {i > 0 && <span className="text-gray-300">|</span>}
-                  <button
-                    onClick={() => { setLang(l.code); setMobileOpen(false); }}
-                    className={`text-sm transition-colors ${
-                      lang === l.code
-                        ? "font-semibold text-primary"
-                        : "text-gray-500 hover:text-primary"
-                    }`}
-                  >
-                    {l.label}
-                  </button>
-                </span>
-              ))}
-            </div>
           </div>
         </div>
       )}
