@@ -19,7 +19,20 @@ export async function GET(request: Request) {
         },
       }
     )
-    await supabase.auth.exchangeCodeForSession(code)
+
+    const { data: { user } } = await supabase.auth.exchangeCodeForSession(code)
+
+    if (user) {
+      const { data: profile } = await supabase
+        .from('bridge_profiles')
+        .select('id')
+        .eq('id', user.id)
+        .single()
+
+      if (!profile) {
+        return NextResponse.redirect(origin + '/auth/signup?sso=1')
+      }
+    }
   }
 
   return NextResponse.redirect(origin + '/')

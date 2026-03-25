@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import { useLanguage } from "@/context/language-context";
@@ -28,6 +28,8 @@ interface TargetLangEntry {
 
 export default function SignupPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const isSso = searchParams.get("sso") === "1";
   const { lang } = useLanguage();
   const tr = translations[lang];
 
@@ -41,6 +43,16 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [gender, setGender] = useState<"male" | "female" | "">("");
+
+  // SSO: pre-fill name/email from Google
+  useEffect(() => {
+    if (!isSso) return;
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user?.user_metadata?.full_name) setName(user.user_metadata.full_name);
+      if (user?.email) setEmail(user.email);
+    });
+  }, [isSso]);
 
   // Step 2 fields
   const [nativeLang, setNativeLang] = useState<NativeLang | "">("");
@@ -88,20 +100,25 @@ export default function SignupPage() {
     setLoading(true);
 
     const supabase = createClient();
+    let userId: string;
 
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email,
-      password,
-    });
-
-    if (authError || !authData.user) {
-      setError(tr.signup_error_generic);
-      setLoading(false);
-      return;
+    if (isSso) {
+      // Already authenticated via Google — just get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setError(tr.signup_error_generic); setLoading(false); return; }
+      userId = user.id;
+    } else {
+      const { data: authData, error: authError } = await supabase.auth.signUp({ email, password });
+      if (authError || !authData.user) {
+        setError(tr.signup_error_generic);
+        setLoading(false);
+        return;
+      }
+      userId = authData.user.id;
     }
 
     const { error: profileError } = await supabase.from("bridge_profiles").insert({
-      id: authData.user.id,
+      id: userId,
       name,
       email,
       gender: gender || null,
@@ -205,48 +222,52 @@ export default function SignupPage() {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">
-                    {tr.signup_email}
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
-                    placeholder="you@example.com"
-                  />
-                </div>
+                {!isSso && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">
+                        {tr.signup_email}
+                      </label>
+                      <input
+                        type="email"
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
+                        placeholder="you@example.com"
+                      />
+                    </div>
 
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">
-                    {tr.signup_password}
-                  </label>
-                  <input
-                    type="password"
-                    required
-                    minLength={6}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
-                    placeholder="••••••••"
-                  />
-                </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">
+                        {tr.signup_password}
+                      </label>
+                      <input
+                        type="password"
+                        required
+                        minLength={6}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
+                        placeholder="••••••••"
+                      />
+                    </div>
 
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1">
-                    {tr.signup_password_confirm}
-                  </label>
-                  <input
-                    type="password"
-                    required
-                    value={passwordConfirm}
-                    onChange={(e) => setPasswordConfirm(e.target.value)}
-                    className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
-                    placeholder="••••••••"
-                  />
-                </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-gray-700 mb-1">
+                        {tr.signup_password_confirm}
+                      </label>
+                      <input
+                        type="password"
+                        required
+                        value={passwordConfirm}
+                        onChange={(e) => setPasswordConfirm(e.target.value)}
+                        className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition"
+                        placeholder="••••••••"
+                      />
+                    </div>
+                  </>
+                )}
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
