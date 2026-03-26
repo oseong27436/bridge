@@ -44,7 +44,7 @@ export default function HomePage() {
   const [events, setEvents] = useState<DbEvent[]>([]);
   const [hosts, setHosts] = useState<DbHost[]>([]);
   const [gallery, setGallery] = useState<DbGallery[]>([]);
-  const [siteImgs, setSiteImgs] = useState<Record<string, string>>(FALLBACK_IMGS);
+  const [siteImgs, setSiteImgs] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -83,9 +83,11 @@ export default function HomePage() {
         {/* ── HERO ──────────────────────────────────────────────────── */}
         <section className="relative min-h-[92vh] flex flex-col">
           {/* Background image */}
-          <div className="absolute inset-0">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={siteImgs.hero} alt="Bridge Osaka" className="h-full w-full object-cover" />
+          <div className="absolute inset-0 bg-gray-900">
+            {siteImgs.hero && (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img src={siteImgs.hero} alt="Bridge Osaka" className="h-full w-full object-cover animate-fade-in" />
+            )}
             <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/20 to-black/70" />
           </div>
 
