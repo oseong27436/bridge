@@ -11,11 +11,11 @@ export default function AdminSettingsPage() {
   const tr = translations[lang];
 
   const SETTING_KEYS = [
-    { key: "hero_image",   label: tr.admin_hero_image   },
-    { key: "meetup_image", label: tr.admin_meetup_image },
-    { key: "party_image",  label: tr.admin_party_image  },
-    { key: "food_image",   label: tr.admin_food_image   },
-    { key: "about_image",  label: tr.admin_about_image  },
+    { key: "hero_image",   label: tr.admin_hero_image,   maxWidth: 1920, quality: 0.95 },
+    { key: "meetup_image", label: tr.admin_meetup_image, maxWidth: 1200, quality: 0.88 },
+    { key: "party_image",  label: tr.admin_party_image,  maxWidth: 1200, quality: 0.88 },
+    { key: "food_image",   label: tr.admin_food_image,   maxWidth: 1200, quality: 0.88 },
+    { key: "about_image",  label: tr.admin_about_image,  maxWidth: 1600, quality: 0.93 },
   ];
 
   const [settings, setSettings] = useState<Record<string, string>>({});
@@ -72,13 +72,15 @@ export default function AdminSettingsPage() {
       </div>
 
       <div className="space-y-6">
-        {SETTING_KEYS.map(({ key, label }) => (
+        {SETTING_KEYS.map(({ key, label, maxWidth, quality }) => (
           <div key={key} className="bg-white rounded-2xl border border-gray-200 p-5">
             <label className="block text-sm font-bold text-gray-800 mb-3">{label}</label>
             <ImageUpload
               value={settings[key] ?? ""}
               onChange={(url) => setSettings((s) => ({ ...s, [key]: url }))}
               folder="settings"
+              maxWidth={maxWidth}
+              quality={quality}
             />
           </div>
         ))}
