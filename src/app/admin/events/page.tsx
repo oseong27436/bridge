@@ -175,8 +175,8 @@ export default function AdminEventsPage() {
                     onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary"
                   >
-                    <option value="published">published</option>
-                    <option value="draft">draft</option>
+                    <option value="published">{tr.status_published}</option>
+                    <option value="draft">{tr.status_draft}</option>
                   </select>
                 </div>
               </div>
@@ -254,7 +254,7 @@ export default function AdminEventsPage() {
                   </td>
                   <td className="px-4 py-3">
                     <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${e.status === "published" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                      {e.status}
+                      {e.status === "published" ? tr.status_published : tr.status_draft}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-right">
