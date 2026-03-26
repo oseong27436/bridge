@@ -125,7 +125,9 @@ export function eventDesc(e: DbEvent, lang: string) {
   return lang === "ko" ? e.description_ko : lang === "en" ? e.description_en : e.description_ja;
 }
 export function eventLocation(e: DbEvent, lang: string) {
-  return lang === "ko" ? e.location_ko : lang === "en" ? e.location_en : e.location_ja;
+  const raw = lang === "ko" ? e.location_ko : lang === "en" ? e.location_en : e.location_ja;
+  if (raw === "__tba__") return lang === "ko" ? "추후 공개" : lang === "en" ? "TBA" : "後日公開";
+  return raw;
 }
 export function hostBio(h: DbHost, lang: string) {
   return lang === "ko" ? h.bio_ko : lang === "en" ? h.bio_en : h.bio_ja;

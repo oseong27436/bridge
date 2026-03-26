@@ -15,6 +15,7 @@ const EMPTY_FORM = {
   date: "",
   time_start: "19:00",
   time_end: "",
+  location_type: "address",  // "tba" | "link" | "address"
   location: "",
   location_url: "",
   image_url: "",
@@ -81,6 +82,8 @@ export default function AdminEventsPage() {
 
   function openEdit(e: DbEvent) {
     setEditId(e.id);
+    const loc = e.location_ko || e.location_ja || e.location_en;
+    const locType = loc === "__tba__" ? "tba" : e.location_url && !loc ? "link" : "address";
     setForm({
       title: e.title_ko || e.title_ja || e.title_en,
       description: e.description_ko || e.description_ja || e.description_en,
@@ -89,7 +92,8 @@ export default function AdminEventsPage() {
       date: e.date,
       time_start: e.time_start,
       time_end: e.time_end ?? "",
-      location: e.location_ko || e.location_ja || e.location_en,
+      location_type: locType,
+      location: locType === "address" ? loc : "",
       location_url: e.location_url ?? "",
       image_url: e.image_url,
       capacity: e.capacity?.toString() ?? "",
@@ -100,6 +104,7 @@ export default function AdminEventsPage() {
   async function handleSave() {
     setSaving(true);
     const supabase = createClient();
+    const locationText = form.location_type === "tba" ? "__tba__" : form.location_type === "link" ? "" : form.location;
     const payload = {
       title_ja: form.title,
       title_ko: form.title,
@@ -107,15 +112,15 @@ export default function AdminEventsPage() {
       description_ja: form.description,
       description_ko: form.description,
       description_en: form.description,
-      location_ja: form.location,
-      location_ko: form.location,
-      location_en: form.location,
+      location_ja: locationText,
+      location_ko: locationText,
+      location_en: locationText,
       category: form.category,
       status: form.status,
       date: form.date,
       time_start: form.time_start,
       time_end: form.time_end || null,
-      location_url: form.location_url || null,
+      location_url: form.location_type === "tba" ? null : form.location_url || null,
       image_url: form.image_url,
       capacity: form.capacity ? parseInt(form.capacity) : null,
     };
@@ -197,8 +202,24 @@ export default function AdminEventsPage() {
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary" />
                 </div>
               </div>
-              <Field label={tr.field_location} name="location" form={form} setForm={setForm} />
-              <Field label={tr.field_map_url} name="location_url" form={form} setForm={setForm} />
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">{tr.location_type}</label>
+                <select
+                  value={form.location_type}
+                  onChange={(e) => setForm((f) => ({ ...f, location_type: e.target.value, location: "", location_url: "" }))}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary"
+                >
+                  <option value="address">{tr.location_address}</option>
+                  <option value="link">{tr.location_link}</option>
+                  <option value="tba">{tr.location_tba}</option>
+                </select>
+              </div>
+              {form.location_type === "address" && (
+                <Field label={tr.field_location} name="location" form={form} setForm={setForm} />
+              )}
+              {(form.location_type === "address" || form.location_type === "link") && (
+                <Field label={tr.field_map_url} name="location_url" form={form} setForm={setForm} />
+              )}
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1">{tr.field_image}</label>
                 <ImageUpload value={form.image_url} onChange={(url) => setForm((f) => ({ ...f, image_url: url }))} folder="events" />
