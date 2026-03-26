@@ -9,9 +9,7 @@ const EMPTY_FORM = {
   avatar_url: "",
   location: "",
   langs: "",
-  bio_ja: "",
-  bio_ko: "",
-  bio_en: "",
+  bio: "",
   sort_order: "0",
 };
 
@@ -47,9 +45,7 @@ export default function AdminHostsPage() {
       avatar_url: h.avatar_url,
       location: h.location,
       langs: h.langs.join(", "),
-      bio_ja: h.bio_ja,
-      bio_ko: h.bio_ko,
-      bio_en: h.bio_en,
+      bio: h.bio_ko || h.bio_ja || h.bio_en,
       sort_order: h.sort_order.toString(),
     });
     setShowForm(true);
@@ -59,8 +55,13 @@ export default function AdminHostsPage() {
     setSaving(true);
     const supabase = createClient();
     const payload = {
-      ...form,
+      name: form.name,
+      avatar_url: form.avatar_url,
+      location: form.location,
       langs: form.langs.split(",").map((s) => s.trim()).filter(Boolean),
+      bio_ja: form.bio,
+      bio_ko: form.bio,
+      bio_en: form.bio,
       sort_order: parseInt(form.sort_order) || 0,
     };
 
@@ -128,11 +129,7 @@ export default function AdminHostsPage() {
               </div>
               <Field label="아바타 이미지 URL" name="avatar_url" />
               <Field label="언어 (쉼표로 구분, 예: 한국어, 日本語)" name="langs" />
-              <div className="grid grid-cols-3 gap-2">
-                <Field label="소개 (일본어)" name="bio_ja" textarea />
-                <Field label="소개 (한국어)" name="bio_ko" textarea />
-                <Field label="소개 (영어)" name="bio_en" textarea />
-              </div>
+              <Field label="소개" name="bio" textarea />
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1">정렬 순서</label>
                 <input
