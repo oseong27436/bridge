@@ -109,6 +109,12 @@ export const translations = {
     nav_my_reservations: "予約管理",
     nav_my_profile: "プロフィール",
     nav_logout: "ログアウト",
+
+    admin_dashboard: "ダッシュボード",
+    admin_events: "イベント管理",
+    admin_hosts: "ホスト管理",
+    admin_gallery: "ギャラリー管理",
+    admin_back: "← サイトに戻る",
   },
 
   ko: {
@@ -210,6 +216,12 @@ export const translations = {
     nav_my_reservations: "내 예약",
     nav_my_profile: "내 프로필",
     nav_logout: "로그아웃",
+
+    admin_dashboard: "대시보드",
+    admin_events: "이벤트 관리",
+    admin_hosts: "호스트 관리",
+    admin_gallery: "갤러리 관리",
+    admin_back: "← 사이트로 돌아가기",
   },
 
   en: {
@@ -311,6 +323,12 @@ export const translations = {
     nav_my_reservations: "My Reservations",
     nav_my_profile: "My Profile",
     nav_logout: "Log Out",
+
+    admin_dashboard: "Dashboard",
+    admin_events: "Events",
+    admin_hosts: "Hosts",
+    admin_gallery: "Gallery",
+    admin_back: "← Back to site",
   },
 } as const;
 
