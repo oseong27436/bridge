@@ -111,6 +111,7 @@ export const translations = {
     nav_logout: "ログアウト",
 
     admin_dashboard: "ダッシュボード",
+    admin_monthly_participants: "月別参加者数",
     admin_events: "イベント管理",
     admin_hosts: "ホスト管理",
     admin_gallery: "ギャラリー管理",
@@ -285,6 +286,7 @@ export const translations = {
     nav_logout: "로그아웃",
 
     admin_dashboard: "대시보드",
+    admin_monthly_participants: "월별 참여자 수",
     admin_events: "이벤트 관리",
     admin_hosts: "호스트 관리",
     admin_gallery: "갤러리 관리",
@@ -459,6 +461,7 @@ export const translations = {
     nav_logout: "Log Out",
 
     admin_dashboard: "Dashboard",
+    admin_monthly_participants: "Monthly Participants",
     admin_events: "Events",
     admin_hosts: "Hosts",
     admin_gallery: "Gallery",
