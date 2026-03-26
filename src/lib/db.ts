@@ -44,6 +44,31 @@ export interface DbGallery {
   sort_order: number;
 }
 
+export interface DbProfile {
+  id: string;
+  name: string;
+  email: string;
+  gender: string | null;
+  native_lang: string | null;
+  target_langs: { lang: string; level: number }[] | null;
+  role: string;
+  lang: string;
+  line_user_id: string | null;
+  avatar_url: string | null;
+  created_at: string;
+  registration_count?: number;
+  attended_count?: number;
+}
+
+export interface DbRegistration {
+  id: string;
+  event_id: string;
+  user_id: string;
+  status: string;
+  created_at: string;
+  event?: DbEvent;
+}
+
 export interface DbReview {
   id: string;
   event_id: string;
@@ -97,6 +122,43 @@ export async function getGallery(): Promise<DbGallery[]> {
     .from("bridge_gallery")
     .select("*")
     .order("sort_order", { ascending: true });
+  return data ?? [];
+}
+
+export async function getProfiles(): Promise<DbProfile[]> {
+  const supabase = createClient();
+  const { data: profiles } = await supabase
+    .from("bridge_profiles")
+    .select("*")
+    .order("created_at", { ascending: false });
+
+  if (!profiles?.length) return [];
+
+  const { data: counts } = await supabase
+    .from("bridge_registrations")
+    .select("user_id, status");
+
+  const countMap: Record<string, { total: number; attended: number }> = {};
+  (counts ?? []).forEach((r: { user_id: string; status: string }) => {
+    if (!countMap[r.user_id]) countMap[r.user_id] = { total: 0, attended: 0 };
+    countMap[r.user_id].total++;
+    if (r.status === "attended") countMap[r.user_id].attended++;
+  });
+
+  return profiles.map((p) => ({
+    ...p,
+    registration_count: countMap[p.id]?.total ?? 0,
+    attended_count: countMap[p.id]?.attended ?? 0,
+  }));
+}
+
+export async function getUserRegistrations(userId: string): Promise<DbRegistration[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("bridge_registrations")
+    .select("*, event:bridge_events(*)")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
   return data ?? [];
 }
 
