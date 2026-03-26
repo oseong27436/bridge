@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import type { DbGallery } from "@/lib/db";
 import ImageUpload from "@/components/admin/image-upload";
+import { useLanguage } from "@/context/language-context";
+import { translations } from "@/lib/i18n";
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent,
 } from "@dnd-kit/core";
@@ -12,7 +14,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
-function SortablePhoto({ item, onDelete }: { item: DbGallery; onDelete: (id: string) => void }) {
+function SortablePhoto({ item, onDelete, deleteLabel }: { item: DbGallery; onDelete: (id: string) => void; deleteLabel: string }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
   return (
     <div
@@ -34,7 +36,7 @@ function SortablePhoto({ item, onDelete }: { item: DbGallery; onDelete: (id: str
           onClick={() => onDelete(item.id)}
           className="opacity-0 group-hover:opacity-100 transition-opacity rounded-full bg-red-500 text-white text-xs font-bold px-3 py-1.5"
         >
-          삭제
+          {deleteLabel}
         </button>
       </div>
       {item.caption && (
@@ -47,6 +49,9 @@ function SortablePhoto({ item, onDelete }: { item: DbGallery; onDelete: (id: str
 }
 
 export default function AdminGalleryPage() {
+  const { lang } = useLanguage();
+  const tr = translations[lang];
+
   const [items, setItems] = useState<DbGallery[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -91,7 +96,7 @@ export default function AdminGalleryPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("사진을 삭제하시겠습니까?")) return;
+    if (!confirm(lang === "ja" ? "写真を削除しますか？" : lang === "en" ? "Delete this photo?" : "사진을 삭제하시겠습니까?")) return;
     await createClient().from("bridge_gallery").delete().eq("id", id);
     load();
   }
@@ -100,28 +105,28 @@ export default function AdminGalleryPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">갤러리 관리</h1>
-          <p className="text-xs text-gray-400 mt-0.5">드래그로 순서 변경</p>
+          <h1 className="text-2xl font-bold text-gray-900">{tr.admin_gallery}</h1>
+          <p className="text-xs text-gray-400 mt-0.5">{tr.admin_drag_reorder}</p>
         </div>
         <button
           onClick={() => setShowForm(true)}
           className="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-primary/90 transition-colors"
         >
-          + 사진 추가
+          {tr.admin_new_photo}
         </button>
       </div>
 
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-2xl w-full max-w-md mx-4 p-6 shadow-xl">
-            <h2 className="text-lg font-bold mb-4">사진 추가</h2>
+            <h2 className="text-lg font-bold mb-4">{tr.admin_add_photo_title}</h2>
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">이미지</label>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">{tr.field_image}</label>
                 <ImageUpload value={form.image_url} onChange={(url) => setForm((f) => ({ ...f, image_url: url }))} folder="gallery" />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">캡션</label>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">{tr.field_caption}</label>
                 <input
                   type="text"
                   value={form.caption}
@@ -132,11 +137,11 @@ export default function AdminGalleryPage() {
             </div>
             <div className="flex gap-2 mt-5 justify-end">
               <button onClick={() => setShowForm(false)} className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-semibold hover:bg-gray-50">
-                취소
+                {tr.admin_cancel}
               </button>
               <button onClick={handleAdd} disabled={saving || !form.image_url}
                 className="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-primary/90 disabled:opacity-60">
-                {saving ? "추가 중..." : "추가"}
+                {saving ? tr.admin_adding : tr.admin_add}
               </button>
             </div>
           </div>
@@ -150,15 +155,15 @@ export default function AdminGalleryPage() {
       ) : items.length === 0 ? (
         <div className="text-center py-20 text-gray-400">
           <div className="text-5xl mb-3">🖼️</div>
-          <p className="font-medium">갤러리 사진이 없습니다</p>
-          <button onClick={() => setShowForm(true)} className="mt-3 text-sm text-primary hover:underline">첫 사진 추가</button>
+          <p className="font-medium">{tr.admin_no_photos}</p>
+          <button onClick={() => setShowForm(true)} className="mt-3 text-sm text-primary hover:underline">{tr.admin_add_first_photo}</button>
         </div>
       ) : (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={items.map((i) => i.id)} strategy={rectSortingStrategy}>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               {items.map((item) => (
-                <SortablePhoto key={item.id} item={item} onDelete={handleDelete} />
+                <SortablePhoto key={item.id} item={item} onDelete={handleDelete} deleteLabel={tr.admin_delete} />
               ))}
             </div>
           </SortableContext>

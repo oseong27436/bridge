@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import type { DbHost } from "@/lib/db";
 import ImageUpload from "@/components/admin/image-upload";
+import { useLanguage } from "@/context/language-context";
+import { translations } from "@/lib/i18n";
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent,
 } from "@dnd-kit/core";
@@ -17,7 +19,13 @@ const EMPTY_FORM = {
 };
 type FormData = typeof EMPTY_FORM;
 
-function SortableCard({ host, onEdit, onDelete }: { host: DbHost; onEdit: (h: DbHost) => void; onDelete: (id: string) => void }) {
+function SortableCard({ host, onEdit, onDelete, editLabel, deleteLabel }: {
+  host: DbHost;
+  onEdit: (h: DbHost) => void;
+  onDelete: (id: string) => void;
+  editLabel: string;
+  deleteLabel: string;
+}) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: host.id });
   return (
     <div
@@ -41,14 +49,17 @@ function SortableCard({ host, onEdit, onDelete }: { host: DbHost; onEdit: (h: Db
       </div>
       <p className="text-xs text-gray-500 line-clamp-2 mb-3">{host.bio_ko || host.bio_ja}</p>
       <div className="flex gap-2">
-        <button onClick={() => onEdit(host)} className="text-xs text-primary hover:underline">수정</button>
-        <button onClick={() => onDelete(host.id)} className="text-xs text-red-500 hover:underline">삭제</button>
+        <button onClick={() => onEdit(host)} className="text-xs text-primary hover:underline">{editLabel}</button>
+        <button onClick={() => onDelete(host.id)} className="text-xs text-red-500 hover:underline">{deleteLabel}</button>
       </div>
     </div>
   );
 }
 
 export default function AdminHostsPage() {
+  const { lang } = useLanguage();
+  const tr = translations[lang];
+
   const [hosts, setHosts] = useState<DbHost[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -101,7 +112,7 @@ export default function AdminHostsPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("호스트를 삭제하시겠습니까?")) return;
+    if (!confirm(lang === "ja" ? "ホストを削除しますか？" : lang === "en" ? "Delete this host?" : "호스트를 삭제하시겠습니까?")) return;
     await createClient().from("bridge_hosts").delete().eq("id", id);
     load();
   }
@@ -125,34 +136,34 @@ export default function AdminHostsPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">호스트 관리</h1>
-          <p className="text-xs text-gray-400 mt-0.5">드래그로 순서 변경</p>
+          <h1 className="text-2xl font-bold text-gray-900">{tr.admin_hosts}</h1>
+          <p className="text-xs text-gray-400 mt-0.5">{tr.admin_drag_reorder}</p>
         </div>
         <button onClick={openNew} className="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-primary/90 transition-colors">
-          + 새 호스트
+          {tr.admin_new_host}
         </button>
       </div>
 
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 overflow-y-auto py-8">
           <div className="bg-white rounded-2xl w-full max-w-xl mx-4 p-6 shadow-xl">
-            <h2 className="text-lg font-bold mb-4">{editId ? "호스트 수정" : "새 호스트"}</h2>
+            <h2 className="text-lg font-bold mb-4">{editId ? tr.admin_edit_host : tr.admin_new_host_title}</h2>
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2">
-                <Field label="이름" name="name" />
-                <Field label="위치" name="location" />
+                <Field label={tr.field_name} name="name" />
+                <Field label={tr.field_position} name="location" />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">아바타 이미지</label>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">{tr.field_avatar}</label>
                 <ImageUpload value={form.avatar_url} onChange={(url) => setForm((f) => ({ ...f, avatar_url: url }))} folder="hosts" />
               </div>
-              <Field label="언어 (쉼표로 구분, 예: 한국어, 日本語)" name="langs" />
-              <Field label="소개" name="bio" textarea />
+              <Field label={tr.field_langs} name="langs" />
+              <Field label={tr.field_bio} name="bio" textarea />
             </div>
             <div className="flex gap-2 mt-5 justify-end">
-              <button onClick={() => setShowForm(false)} className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-semibold hover:bg-gray-50">취소</button>
+              <button onClick={() => setShowForm(false)} className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-semibold hover:bg-gray-50">{tr.admin_cancel}</button>
               <button onClick={handleSave} disabled={saving} className="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-primary/90 disabled:opacity-60">
-                {saving ? "저장 중..." : "저장"}
+                {saving ? tr.admin_saving : tr.admin_save}
               </button>
             </div>
           </div>
@@ -166,14 +177,23 @@ export default function AdminHostsPage() {
       ) : hosts.length === 0 ? (
         <div className="text-center py-20 text-gray-400">
           <div className="text-5xl mb-3">👤</div>
-          <p className="font-medium">호스트가 없습니다</p>
-          <button onClick={openNew} className="mt-3 text-sm text-primary hover:underline">첫 호스트 추가</button>
+          <p className="font-medium">{tr.admin_no_hosts}</p>
+          <button onClick={openNew} className="mt-3 text-sm text-primary hover:underline">{tr.admin_add_first_host}</button>
         </div>
       ) : (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={hosts.map((h) => h.id)} strategy={rectSortingStrategy}>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {hosts.map((h) => <SortableCard key={h.id} host={h} onEdit={openEdit} onDelete={handleDelete} />)}
+              {hosts.map((h) => (
+                <SortableCard
+                  key={h.id}
+                  host={h}
+                  onEdit={openEdit}
+                  onDelete={handleDelete}
+                  editLabel={tr.admin_edit}
+                  deleteLabel={tr.admin_delete}
+                />
+              ))}
             </div>
           </SortableContext>
         </DndContext>

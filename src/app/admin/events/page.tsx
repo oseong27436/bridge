@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import type { DbEvent } from "@/lib/db";
 import ImageUpload from "@/components/admin/image-upload";
+import { useLanguage } from "@/context/language-context";
+import { translations } from "@/lib/i18n";
 
 const EMPTY_FORM = {
   title: "",
@@ -22,6 +24,9 @@ const EMPTY_FORM = {
 type FormData = typeof EMPTY_FORM;
 
 export default function AdminEventsPage() {
+  const { lang } = useLanguage();
+  const tr = translations[lang];
+
   const [events, setEvents] = useState<DbEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -96,9 +101,8 @@ export default function AdminEventsPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("이벤트를 삭제하시겠습니까?")) return;
-    const supabase = createClient();
-    await supabase.from("bridge_events").delete().eq("id", id);
+    if (!confirm(lang === "ja" ? "イベントを削除しますか？" : lang === "en" ? "Delete this event?" : "이벤트를 삭제하시겠습니까?")) return;
+    await createClient().from("bridge_events").delete().eq("id", id);
     load();
   }
 
@@ -128,38 +132,37 @@ export default function AdminEventsPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">이벤트 관리</h1>
+        <h1 className="text-2xl font-bold text-gray-900">{tr.admin_events}</h1>
         <button
           onClick={openNew}
           className="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-primary/90 transition-colors"
         >
-          + 새 이벤트
+          {tr.admin_new_event}
         </button>
       </div>
 
-      {/* Form Modal */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 overflow-y-auto py-8">
           <div className="bg-white rounded-2xl w-full max-w-lg mx-4 p-6 shadow-xl">
-            <h2 className="text-lg font-bold mb-4">{editId ? "이벤트 수정" : "새 이벤트"}</h2>
+            <h2 className="text-lg font-bold mb-4">{editId ? tr.admin_edit_event : tr.admin_new_event_title}</h2>
             <div className="space-y-3">
-              <Field label="제목" name="title" />
-              <Field label="설명" name="description" textarea />
+              <Field label={tr.field_title} name="title" />
+              <Field label={tr.field_description} name="description" textarea />
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">카테고리</label>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">{tr.field_category}</label>
                   <select
                     value={form.category}
                     onChange={(e) => setForm((f) => ({ ...f, category: e.target.value }))}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary"
                   >
                     {["meetup","party","sports","food","culture","other"].map((c) => (
-                      <option key={c} value={c}>{c}</option>
+                      <option key={c} value={c}>{tr[`cat_${c}` as keyof typeof tr] ?? c}</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">상태</label>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">{tr.field_status}</label>
                   <select
                     value={form.status}
                     onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
@@ -172,47 +175,46 @@ export default function AdminEventsPage() {
               </div>
               <div className="grid grid-cols-3 gap-2">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">날짜</label>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">{tr.field_date}</label>
                   <input type="date" value={form.date} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary" />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">시작</label>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">{tr.field_time_start}</label>
                   <input type="time" value={form.time_start} onChange={(e) => setForm((f) => ({ ...f, time_start: e.target.value }))}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary" />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">종료</label>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">{tr.field_time_end}</label>
                   <input type="time" value={form.time_end} onChange={(e) => setForm((f) => ({ ...f, time_end: e.target.value }))}
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary" />
                 </div>
               </div>
-              <Field label="장소" name="location" />
-              <Field label="지도 URL" name="location_url" />
+              <Field label={tr.field_location} name="location" />
+              <Field label={tr.field_map_url} name="location_url" />
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">이미지</label>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">{tr.field_image}</label>
                 <ImageUpload value={form.image_url} onChange={(url) => setForm((f) => ({ ...f, image_url: url }))} folder="events" />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">정원 (선택)</label>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">{tr.field_capacity}</label>
                 <input type="number" value={form.capacity} onChange={(e) => setForm((f) => ({ ...f, capacity: e.target.value }))}
                   className="w-32 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary" />
               </div>
             </div>
             <div className="flex gap-2 mt-5 justify-end">
               <button onClick={() => setShowForm(false)} className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-semibold hover:bg-gray-50">
-                취소
+                {tr.admin_cancel}
               </button>
               <button onClick={handleSave} disabled={saving}
                 className="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-primary/90 disabled:opacity-60">
-                {saving ? "저장 중..." : "저장"}
+                {saving ? tr.admin_saving : tr.admin_save}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Table */}
       {loading ? (
         <div className="animate-pulse space-y-2">
           {[1,2,3].map((i) => <div key={i} className="h-14 bg-gray-100 rounded-xl" />)}
@@ -220,18 +222,18 @@ export default function AdminEventsPage() {
       ) : events.length === 0 ? (
         <div className="text-center py-20 text-gray-400">
           <div className="text-5xl mb-3">📅</div>
-          <p className="font-medium">이벤트가 없습니다</p>
-          <button onClick={openNew} className="mt-3 text-sm text-primary hover:underline">첫 이벤트 만들기</button>
+          <p className="font-medium">{tr.admin_no_events}</p>
+          <button onClick={openNew} className="mt-3 text-sm text-primary hover:underline">{tr.admin_add_first_event}</button>
         </div>
       ) : (
         <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-gray-200 bg-gray-50">
-                <th className="px-4 py-3 text-left font-semibold text-gray-600">날짜</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-600">제목</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-600">카테고리</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-600">상태</th>
+                <th className="px-4 py-3 text-left font-semibold text-gray-600">{tr.field_date}</th>
+                <th className="px-4 py-3 text-left font-semibold text-gray-600">{tr.field_title}</th>
+                <th className="px-4 py-3 text-left font-semibold text-gray-600">{tr.field_category}</th>
+                <th className="px-4 py-3 text-left font-semibold text-gray-600">{tr.field_status}</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
@@ -250,8 +252,8 @@ export default function AdminEventsPage() {
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex gap-2 justify-end">
-                      <button onClick={() => openEdit(e)} className="text-xs text-primary hover:underline">수정</button>
-                      <button onClick={() => handleDelete(e.id)} className="text-xs text-red-500 hover:underline">삭제</button>
+                      <button onClick={() => openEdit(e)} className="text-xs text-primary hover:underline">{tr.admin_edit}</button>
+                      <button onClick={() => handleDelete(e.id)} className="text-xs text-red-500 hover:underline">{tr.admin_delete}</button>
                     </div>
                   </td>
                 </tr>

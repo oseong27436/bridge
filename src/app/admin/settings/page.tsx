@@ -3,16 +3,21 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import ImageUpload from "@/components/admin/image-upload";
-
-const SETTING_KEYS = [
-  { key: "hero_image", label: "히어로 이미지" },
-  { key: "meetup_image", label: "미팅 카드 이미지" },
-  { key: "party_image", label: "파티 카드 이미지" },
-  { key: "food_image", label: "음식 카드 이미지" },
-  { key: "about_image", label: "Bridge 소개 이미지" },
-];
+import { useLanguage } from "@/context/language-context";
+import { translations } from "@/lib/i18n";
 
 export default function AdminSettingsPage() {
+  const { lang } = useLanguage();
+  const tr = translations[lang];
+
+  const SETTING_KEYS = [
+    { key: "hero_image",   label: tr.admin_hero_image   },
+    { key: "meetup_image", label: tr.admin_meetup_image },
+    { key: "party_image",  label: tr.admin_party_image  },
+    { key: "food_image",   label: tr.admin_food_image   },
+    { key: "about_image",  label: tr.admin_about_image  },
+  ];
+
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -45,7 +50,7 @@ export default function AdminSettingsPage() {
   if (loading) {
     return (
       <div className="animate-pulse space-y-6">
-        {SETTING_KEYS.map((k) => <div key={k.key} className="h-44 bg-gray-100 rounded-2xl" />)}
+        {[1,2,3,4,5].map((i) => <div key={i} className="h-44 bg-gray-100 rounded-2xl" />)}
       </div>
     );
   }
@@ -54,15 +59,15 @@ export default function AdminSettingsPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">사이트 설정</h1>
-          <p className="text-xs text-gray-400 mt-0.5">홈페이지에 표시되는 고정 이미지 관리</p>
+          <h1 className="text-2xl font-bold text-gray-900">{tr.admin_settings}</h1>
+          <p className="text-xs text-gray-400 mt-0.5">{tr.admin_settings_subtitle}</p>
         </div>
         <button
           onClick={handleSave}
           disabled={saving}
           className="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-primary/90 disabled:opacity-60 transition-colors"
         >
-          {saved ? "저장됨 ✓" : saving ? "저장 중..." : "저장"}
+          {saved ? tr.admin_saved : saving ? tr.admin_saving : tr.admin_save}
         </button>
       </div>
 
