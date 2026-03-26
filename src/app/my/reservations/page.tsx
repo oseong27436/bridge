@@ -31,7 +31,7 @@ export default function ReservationsPage() {
   const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   const localeStr =
-    lang === "ja" ? "ja-JP" : lang === "ko" ? "ko-KR" : lang === "zh" ? "zh-CN" : "en-US";
+    lang === "ja" ? "ja-JP" : lang === "ko" ? "ko-KR" : "en-US";
 
   useEffect(() => {
     async function init() {
