@@ -8,6 +8,7 @@ import Footer from "@/components/layout/footer";
 import { getEvents, eventTitle, eventLocation, type DbEvent } from "@/lib/db";
 import { useLanguage } from "@/context/language-context";
 import { translations } from "@/lib/i18n";
+import { createClient } from "@/lib/supabase";
 import type { EventCategory } from "@/lib/types";
 
 function getCalendarDays(year: number, month: number) {
@@ -32,6 +33,10 @@ export default function EventsPage() {
 
   const [events, setEvents] = useState<DbEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
+  // Set of event IDs the user has a non-cancelled registration for
+  const [registeredIds, setRegisteredIds] = useState<Set<string>>(new Set());
+  const [applyingId, setApplyingId] = useState<string | null>(null);
 
   const today = new Date();
   const [calYear, setCalYear] = useState(today.getFullYear());
@@ -41,7 +46,37 @@ export default function EventsPage() {
 
   useEffect(() => {
     getEvents().then((data) => { setEvents(data); setLoading(false); });
+
+    // Load current user + their registrations
+    const supabase = createClient();
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session) return;
+      setUserId(session.user.id);
+      const { data } = await supabase
+        .from("bridge_registrations")
+        .select("event_id, status")
+        .eq("user_id", session.user.id)
+        .neq("status", "cancelled");
+      setRegisteredIds(new Set((data ?? []).map((r: { event_id: string }) => r.event_id)));
+    });
   }, []);
+
+  async function handleRegister(event: DbEvent) {
+    if (!userId) {
+      window.location.href = "/auth/login";
+      return;
+    }
+    if (registeredIds.has(event.id)) return;
+    setApplyingId(event.id);
+    const supabase = createClient();
+    await supabase.from("bridge_registrations").insert({
+      event_id: event.id,
+      user_id: userId,
+      status: "pending",
+    });
+    setRegisteredIds((prev) => new Set([...prev, event.id]));
+    setApplyingId(null);
+  }
 
   const eventDates = useMemo(() => new Set(events.map((e) => e.date)), [events]);
   const calendarDays = getCalendarDays(calYear, calMonth);
@@ -203,46 +238,65 @@ export default function EventsPage() {
             </div>
           ) : filteredEvents.length > 0 ? (
             <div className="space-y-3">
-              {filteredEvents.map((event) => (
-                <Link
+              {filteredEvents.map((event) => {
+                const isRegistered = registeredIds.has(event.id);
+                const isApplying = applyingId === event.id;
+                return (
+                <div
                   key={event.id}
-                  href={`/events/${event.id}`}
-                  className="group flex gap-4 rounded-xl border border-gray-200 bg-white p-4 hover:shadow-md transition-shadow"
+                  className="rounded-xl border border-gray-200 bg-white hover:shadow-md transition-shadow overflow-hidden"
                 >
-                  <div className="w-24 sm:w-32 shrink-0 aspect-square rounded-lg overflow-hidden bg-gray-100">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={event.image_url} alt={eventTitle(event, lang)} className="h-full w-full object-cover" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-wrap gap-1 mb-1.5">
-                      <span className="rounded text-[10px] font-bold bg-orange-100 text-orange-600 px-1.5 py-0.5">
-                        {tr[`cat_${event.category}` as keyof typeof tr] ?? event.category}
-                      </span>
-                      <span className="rounded text-[10px] font-bold bg-gray-100 text-gray-500 px-1.5 py-0.5">
-                        {eventLocation(event, lang).split("（")[0].split("(")[0].trim()}
-                      </span>
+                  <Link href={`/events/${event.id}`} className="group flex gap-4 p-4 block">
+                    <div className="w-24 sm:w-32 shrink-0 aspect-square rounded-lg overflow-hidden bg-gray-100">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={event.image_url} alt={eventTitle(event, lang)} className="h-full w-full object-cover" />
                     </div>
-                    <h3 className="text-sm sm:text-base font-bold text-gray-900 group-hover:text-primary transition-colors leading-snug mb-1">
-                      {eventTitle(event, lang)}
-                    </h3>
-                    <p className="text-xs text-gray-500">
-                      {new Date(event.date + "T00:00:00").toLocaleDateString(
-                        lang === "ja" ? "ja-JP" : lang === "ko" ? "ko-KR" : "en-US",
-                        { month: "numeric", day: "numeric", weekday: "short" }
-                      )}
-                      {event.time_end
-                        ? ` · ${event.time_start}〜${event.time_end}`
-                        : ` · ${event.time_start}〜`}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-0.5">📍 {eventLocation(event, lang)}</p>
-                    {event.capacity !== null && (
-                      <p className="text-xs font-semibold text-gray-600 mt-2">
-                        {tr.going} / {event.capacity}{tr.spots}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap gap-1 mb-1.5">
+                        <span className="rounded text-[10px] font-bold bg-orange-100 text-orange-600 px-1.5 py-0.5">
+                          {tr[`cat_${event.category}` as keyof typeof tr] ?? event.category}
+                        </span>
+                        <span className="rounded text-[10px] font-bold bg-gray-100 text-gray-500 px-1.5 py-0.5">
+                          {eventLocation(event, lang).split("（")[0].split("(")[0].trim()}
+                        </span>
+                      </div>
+                      <h3 className="text-sm sm:text-base font-bold text-gray-900 group-hover:text-primary transition-colors leading-snug mb-1">
+                        {eventTitle(event, lang)}
+                      </h3>
+                      <p className="text-xs text-gray-500">
+                        {new Date(event.date + "T00:00:00").toLocaleDateString(
+                          lang === "ja" ? "ja-JP" : lang === "ko" ? "ko-KR" : "en-US",
+                          { month: "numeric", day: "numeric", weekday: "short" }
+                        )}
+                        {event.time_end
+                          ? ` · ${event.time_start}〜${event.time_end}`
+                          : ` · ${event.time_start}〜`}
                       </p>
-                    )}
+                      <p className="text-xs text-gray-400 mt-0.5">📍 {eventLocation(event, lang)}</p>
+                    </div>
+                  </Link>
+                  {/* Register strip */}
+                  <div className="border-t border-gray-100 px-4 py-2.5 flex items-center justify-between">
+                    {event.capacity !== null ? (
+                      <p className="text-xs text-gray-500">
+                        <span className="font-semibold text-gray-700">{tr.going}</span> / {event.capacity}{tr.spots}
+                      </p>
+                    ) : <span />}
+                    <button
+                      onClick={() => handleRegister(event)}
+                      disabled={isRegistered || isApplying}
+                      className={`rounded-full px-4 py-1.5 text-xs font-bold transition-colors ${
+                        isRegistered
+                          ? "bg-green-100 text-green-700 cursor-default"
+                          : "bg-primary text-white hover:bg-primary/90 disabled:opacity-60"
+                      }`}
+                    >
+                      {isApplying ? tr.reg_applying : isRegistered ? `✓ ${tr.reg_applied}` : tr.reg_apply}
+                    </button>
                   </div>
-                </Link>
-              ))}
+                </div>
+                );
+              })}
             </div>
           ) : (
             <div className="text-center py-16 text-gray-400">

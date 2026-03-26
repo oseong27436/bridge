@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import type { User } from "@supabase/supabase-js";
+import { User } from "@supabase/supabase-js";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import { useLanguage } from "@/context/language-context";
 import { translations } from "@/lib/i18n";
 import { createClient } from "@/lib/supabase";
 import type { NativeLang, TargetLevel } from "@/lib/types";
+import { Camera } from "lucide-react";
 
 interface BridgeProfile {
   id: string;
@@ -19,19 +20,10 @@ interface BridgeProfile {
   native_lang?: NativeLang;
   target_lang?: NativeLang;
   target_level?: TargetLevel;
+  avatar_url?: string | null;
 }
 
-const LEVEL_COLORS: Record<number, string> = {
-  1: "bg-gray-100 text-gray-600",
-  2: "bg-blue-100 text-blue-600",
-  3: "bg-green-100 text-green-600",
-  4: "bg-yellow-100 text-yellow-700",
-  5: "bg-orange-100 text-orange-600",
-  6: "bg-red-100 text-red-600",
-};
-
-const LEVEL_KEYS = ["level_1", "level_2", "level_3", "level_4", "level_5", "level_6"] as const;
-const LANG_KEYS: Record<string, keyof typeof translations.en> = {
+const LANG_KEYS: Record<string, string> = {
   ja: "lang_ja",
   ko: "lang_ko",
   en: "lang_en",
@@ -39,17 +31,70 @@ const LANG_KEYS: Record<string, keyof typeof translations.en> = {
   other: "lang_other",
 };
 
+const LEVEL_KEYS: Record<number, string> = {
+  1: "level_1",
+  2: "level_2",
+  3: "level_3",
+  4: "level_4",
+  5: "level_5",
+  6: "level_6",
+};
+
+const LEVEL_COLORS: Record<number, string> = {
+  1: "bg-gray-100 text-gray-600",
+  2: "bg-blue-100 text-blue-600",
+  3: "bg-green-100 text-green-700",
+  4: "bg-yellow-100 text-yellow-700",
+  5: "bg-orange-100 text-orange-700",
+  6: "bg-red-100 text-red-700",
+};
+
+async function compressImage(file: File): Promise<Blob> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, 400 / img.width);
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+      canvas.toBlob((blob) => resolve(blob!), "image/jpeg", 0.9);
+    };
+    img.src = url;
+  });
+}
+
 export default function ProfilePage() {
   const router = useRouter();
   const { lang } = useLanguage();
   const tr = translations[lang];
+
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<BridgeProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [editMode, setEditMode] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const [editName, setEditName] = useState("");
+  const [editGender, setEditGender] = useState("");
+  const [editNativeLang, setEditNativeLang] = useState("");
+  const [editTargetLang, setEditTargetLang] = useState("");
+  const [editTargetLevel, setEditTargetLevel] = useState(0);
+  const [editAvatarUrl, setEditAvatarUrl] = useState("");
+
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    async function init() {
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session) {
         router.push("/auth/login");
         return;
@@ -62,45 +107,113 @@ export default function ProfilePage() {
         .eq("id", session.user.id)
         .single();
 
-      setProfile(data ?? null);
+      if (data) {
+        setProfile(data as BridgeProfile);
+        setEditName(data.name ?? "");
+        setEditGender(data.gender ?? "");
+        setEditNativeLang(data.native_lang ?? "");
+        setEditTargetLang(data.target_lang ?? "");
+        setEditTargetLevel(data.target_level ?? 0);
+        setEditAvatarUrl(data.avatar_url ?? "");
+      }
       setLoading(false);
-    });
+    }
+    init();
   }, [router]);
+
+  async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    setAvatarUploading(true);
+    try {
+      const supabase = createClient();
+      const compressed = await compressImage(file);
+      const timestamp = Date.now();
+      const path = `avatars/${timestamp}.jpg`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("bridge-images")
+        .upload(path, compressed, { contentType: "image/jpeg", upsert: true });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from("bridge-images")
+        .getPublicUrl(path);
+
+      const url = urlData.publicUrl;
+
+      setEditAvatarUrl(url);
+      setProfile((prev) => (prev ? { ...prev, avatar_url: url } : prev));
+
+      await supabase
+        .from("bridge_profiles")
+        .update({ avatar_url: url })
+        .eq("id", user.id);
+    } catch (err) {
+      console.error("Avatar upload failed:", err);
+    } finally {
+      setAvatarUploading(false);
+      if (avatarInputRef.current) avatarInputRef.current.value = "";
+    }
+  }
+
+  async function handleSave() {
+    if (!user) return;
+    setSaving(true);
+    try {
+      const supabase = createClient();
+      await supabase
+        .from("bridge_profiles")
+        .update({
+          name: editName,
+          gender: editGender || null,
+          native_lang: editNativeLang || null,
+          target_lang: editTargetLang || null,
+          target_level: editTargetLevel || null,
+          avatar_url: editAvatarUrl || null,
+        })
+        .eq("id", user.id);
+
+      const { data } = await supabase
+        .from("bridge_profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+
+      if (data) setProfile(data as BridgeProfile);
+      setEditMode(false);
+    } catch (err) {
+      console.error("Save failed:", err);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const displayAvatar =
+    profile?.avatar_url ?? (user?.user_metadata?.avatar_url as string | undefined) ?? "";
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      <div className="min-h-screen flex flex-col bg-gray-50">
+        <Header />
+        <main className="flex-1 mx-auto w-full max-w-2xl px-4 sm:px-6 py-10">
+          <div className="animate-pulse space-y-4">
+            <div className="h-10 bg-gray-200 rounded-full w-48" />
+            <div className="h-64 bg-gray-200 rounded-2xl" />
+          </div>
+        </main>
+        <Footer />
       </div>
     );
   }
 
-  const genderLabel =
-    profile?.gender === "male"
-      ? tr.signup_male
-      : profile?.gender === "female"
-      ? tr.signup_female
-      : "—";
-
-  const nativeLangLabel = profile?.native_lang
-    ? tr[LANG_KEYS[profile.native_lang] ?? "lang_other"]
-    : "—";
-
-  const targetLangLabel = profile?.target_lang
-    ? tr[LANG_KEYS[profile.target_lang] ?? "lang_other"]
-    : "—";
-
-  const levelKey = profile?.target_level
-    ? LEVEL_KEYS[profile.target_level - 1]
-    : null;
-  const levelLabel = levelKey ? tr[levelKey] : "—";
-  const levelColor = profile?.target_level ? LEVEL_COLORS[profile.target_level] : "";
-
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
       <Header />
-      <main className="flex-1 mx-auto w-full max-w-5xl px-4 sm:px-6 py-10">
-        {/* 탭 */}
+      <main className="flex-1 mx-auto w-full max-w-2xl px-4 sm:px-6 py-10">
+        {/* Tabs */}
         <div className="flex gap-2 mb-8">
           <span className="rounded-full px-5 py-2 text-sm font-bold bg-primary text-white">
             {tr.nav_my_profile}
@@ -113,57 +226,226 @@ export default function ProfilePage() {
           </Link>
         </div>
 
-        <h1 className="text-2xl font-bold mb-6">{tr.nav_my_profile}</h1>
-
-        <div className="rounded-2xl border border-gray-200 bg-white p-6 sm:p-8 max-w-lg flex flex-col gap-5">
-          {/* 이름 */}
-          <div className="flex flex-col gap-1">
-            <span className="text-xs text-gray-400 font-semibold uppercase tracking-wide">
-              {tr.signup_name}
-            </span>
-            <span className="text-base font-semibold">{profile?.name ?? "—"}</span>
-          </div>
-
-          {/* 이메일 */}
-          <div className="flex flex-col gap-1">
-            <span className="text-xs text-gray-400 font-semibold uppercase tracking-wide">
-              {tr.signup_email}
-            </span>
-            <span className="text-base">{user?.email ?? "—"}</span>
-          </div>
-
-          {/* 성별 */}
-          <div className="flex flex-col gap-1">
-            <span className="text-xs text-gray-400 font-semibold uppercase tracking-wide">
-              {tr.signup_gender}
-            </span>
-            <span className="text-base">{genderLabel}</span>
-          </div>
-
-          {/* 모국어 */}
-          <div className="flex flex-col gap-1">
-            <span className="text-xs text-gray-400 font-semibold uppercase tracking-wide">
-              {tr.signup_native_lang}
-            </span>
-            <span className="text-base">{nativeLangLabel}</span>
-          </div>
-
-          {/* 학습 언어 + 레벨 */}
-          <div className="flex flex-col gap-1">
-            <span className="text-xs text-gray-400 font-semibold uppercase tracking-wide">
-              {tr.signup_target_lang}
-            </span>
-            <div className="flex items-center gap-2">
-              <span className="text-base">{targetLangLabel}</span>
-              {levelKey && (
-                <span
-                  className={`rounded-full text-[10px] font-bold px-2 py-0.5 ${levelColor}`}
+        <div className="bg-white rounded-2xl border border-gray-200 p-6 sm:p-8">
+          {/* Avatar section - always visible, always editable */}
+          <div className="flex flex-col items-center mb-8">
+            <div
+              className="relative group cursor-pointer"
+              onClick={() => avatarInputRef.current?.click()}
+            >
+              {displayAvatar ? (
+                <img
+                  src={displayAvatar}
+                  alt={profile?.name ?? ""}
+                  className="rounded-full object-cover border-4 border-white shadow-md"
+                  style={{ width: 88, height: 88 }}
+                />
+              ) : (
+                <div
+                  className="rounded-full bg-primary flex items-center justify-center text-white text-3xl font-bold border-4 border-white shadow-md"
+                  style={{ width: 88, height: 88 }}
                 >
-                  {levelLabel}
-                </span>
+                  {(profile?.name ?? "?")[0].toUpperCase()}
+                </div>
               )}
+              <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                {avatarUploading ? (
+                  <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
+                ) : (
+                  <Camera className="h-5 w-5 text-white" />
+                )}
+              </div>
             </div>
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleAvatarChange}
+            />
+            <p className="mt-3 text-lg font-bold text-gray-900">{profile?.name ?? ""}</p>
+            <p className="text-sm text-gray-400">{user?.email ?? ""}</p>
           </div>
+
+          {/* View mode */}
+          {!editMode && (
+            <>
+              <div className="space-y-4">
+                {/* Gender */}
+                <div>
+                  <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">
+                    {tr.signup_gender}
+                  </p>
+                  <p className="text-sm text-gray-800">
+                    {profile?.gender === "male"
+                      ? tr.signup_male
+                      : profile?.gender === "female"
+                      ? tr.signup_female
+                      : profile?.gender === "other"
+                      ? tr.signup_other
+                      : "—"}
+                  </p>
+                </div>
+
+                {/* Native lang */}
+                <div>
+                  <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">
+                    {tr.signup_native_lang}
+                  </p>
+                  <p className="text-sm text-gray-800">
+                    {profile?.native_lang
+                      ? ((tr[LANG_KEYS[profile.native_lang] as keyof typeof tr] as string) ?? "—")
+                      : "—"}
+                  </p>
+                </div>
+
+                {/* Target lang */}
+                <div>
+                  <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">
+                    {tr.signup_target_lang}
+                  </p>
+                  <p className="text-sm text-gray-800">
+                    {profile?.target_lang
+                      ? ((tr[LANG_KEYS[profile.target_lang] as keyof typeof tr] as string) ?? "—")
+                      : "—"}
+                  </p>
+                </div>
+
+                {/* Level */}
+                <div>
+                  <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">
+                    {tr.signup_level}
+                  </p>
+                  {profile?.target_level ? (
+                    <span
+                      className={`inline-block rounded-full px-3 py-0.5 text-xs font-semibold ${
+                        LEVEL_COLORS[profile.target_level] ?? "bg-gray-100 text-gray-600"
+                      }`}
+                    >
+                      {(tr[LEVEL_KEYS[profile.target_level] as keyof typeof tr] as string) ?? "—"}
+                    </span>
+                  ) : (
+                    <p className="text-sm text-gray-800">—</p>
+                  )}
+                </div>
+              </div>
+
+              <button
+                onClick={() => setEditMode(true)}
+                className="mt-6 w-full rounded-xl border border-gray-300 py-2.5 text-sm font-semibold hover:bg-gray-50 transition"
+              >
+                {tr.profile_edit}
+              </button>
+            </>
+          )}
+
+          {/* Edit mode */}
+          {editMode && (
+            <div className="space-y-4">
+              {/* Name */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1">
+                  {tr.signup_name}
+                </label>
+                <input
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+
+              {/* Gender */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1">
+                  {tr.signup_gender}
+                </label>
+                <select
+                  value={editGender}
+                  onChange={(e) => setEditGender(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary bg-white"
+                >
+                  <option value="">—</option>
+                  <option value="male">{tr.signup_male}</option>
+                  <option value="female">{tr.signup_female}</option>
+                  <option value="other">{tr.signup_other}</option>
+                </select>
+              </div>
+
+              {/* Native lang */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1">
+                  {tr.signup_native_lang}
+                </label>
+                <select
+                  value={editNativeLang}
+                  onChange={(e) => setEditNativeLang(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary bg-white"
+                >
+                  <option value="">—</option>
+                  {["ja", "ko", "en", "zh", "other"].map((l) => (
+                    <option key={l} value={l}>
+                      {tr[`lang_${l}` as keyof typeof tr] as string}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Target lang */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1">
+                  {tr.signup_target_lang}
+                </label>
+                <select
+                  value={editTargetLang}
+                  onChange={(e) => setEditTargetLang(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary bg-white"
+                >
+                  <option value="">—</option>
+                  {["ja", "ko", "en", "zh", "other"].map((l) => (
+                    <option key={l} value={l}>
+                      {tr[`lang_${l}` as keyof typeof tr] as string}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Level */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 mb-1">
+                  {tr.signup_level}
+                </label>
+                <select
+                  value={editTargetLevel}
+                  onChange={(e) => setEditTargetLevel(Number(e.target.value))}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary bg-white"
+                >
+                  <option value={0}>—</option>
+                  {[1, 2, 3, 4, 5, 6].map((n) => (
+                    <option key={n} value={n}>
+                      {tr[`level_${n}` as keyof typeof tr] as string}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <button
+                  onClick={() => setEditMode(false)}
+                  className="flex-1 rounded-xl border border-gray-300 py-2.5 text-sm font-semibold hover:bg-gray-50 transition"
+                >
+                  {tr.admin_cancel}
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-bold text-white hover:bg-primary/90 disabled:opacity-60 transition"
+                >
+                  {saving ? tr.profile_saving : tr.profile_save}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </main>
       <Footer />
