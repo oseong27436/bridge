@@ -7,10 +7,32 @@ interface Props {
   value: string;
   onChange: (url: string) => void;
   folder?: string;
+  maxWidth?: number;  // 최대 가로 (px), 기본 1200
+  quality?: number;   // JPEG 품질 0~1, 기본 0.85
 }
 
-export default function ImageUpload({ value, onChange, folder = "misc" }: Props) {
+async function compressImage(file: File, maxWidth: number, quality: number): Promise<Blob> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxWidth / img.width);
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+      canvas.toBlob((blob) => resolve(blob!), "image/jpeg", quality);
+    };
+    img.src = url;
+  });
+}
+
+export default function ImageUpload({ value, onChange, folder = "misc", maxWidth = 1200, quality = 0.85 }: Props) {
   const [uploading, setUploading] = useState(false);
+  const [sizeInfo, setSizeInfo] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -18,11 +40,18 @@ export default function ImageUpload({ value, onChange, folder = "misc" }: Props)
     if (!file) return;
 
     setUploading(true);
-    const supabase = createClient();
-    const ext = file.name.split(".").pop();
-    const path = `${folder}/${Date.now()}.${ext}`;
+    setSizeInfo(null);
 
-    const { error } = await supabase.storage.from("bridge-images").upload(path, file, { upsert: true });
+    const compressed = await compressImage(file, maxWidth, quality);
+    const savedPct = Math.round((1 - compressed.size / file.size) * 100);
+    if (savedPct > 0) setSizeInfo(`${(compressed.size / 1024).toFixed(0)}KB (${savedPct}% 압축)`);
+
+    const supabase = createClient();
+    const path = `${folder}/${Date.now()}.jpg`;
+    const { error } = await supabase.storage.from("bridge-images").upload(path, compressed, {
+      upsert: true,
+      contentType: "image/jpeg",
+    });
 
     if (!error) {
       const { data } = supabase.storage.from("bridge-images").getPublicUrl(path);
@@ -52,15 +81,18 @@ export default function ImageUpload({ value, onChange, folder = "misc" }: Props)
           </div>
         )}
       </div>
-      {value && (
-        <button
-          type="button"
-          onClick={() => onChange("")}
-          className="text-xs text-red-400 hover:underline"
-        >
-          이미지 제거
-        </button>
-      )}
+      <div className="flex items-center justify-between">
+        {sizeInfo && <p className="text-xs text-gray-400">{sizeInfo}</p>}
+        {value && (
+          <button
+            type="button"
+            onClick={() => { onChange(""); setSizeInfo(null); }}
+            className="text-xs text-red-400 hover:underline ml-auto"
+          >
+            이미지 제거
+          </button>
+        )}
+      </div>
       <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleFile} />
     </div>
   );
