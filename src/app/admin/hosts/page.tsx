@@ -52,11 +52,12 @@ function SortableCard({ host, onEdit, onDelete, editLabel, deleteLabel }: {
     <div
       ref={setNodeRef}
       {...attributes}
+      {...listeners}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`bg-white rounded-2xl border border-gray-200 p-4 ${isDragging ? "shadow-xl opacity-80 z-50" : ""}`}
+      className={`bg-white rounded-2xl border border-gray-200 p-4 cursor-grab active:cursor-grabbing select-none ${isDragging ? "shadow-xl opacity-80 z-50 ring-2 ring-primary" : "hover:shadow-md"}`}
     >
       <div className="flex items-center gap-3 mb-3">
-        <div {...listeners} className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 text-lg select-none">⠿</div>
+        <div className="text-gray-300 text-lg">⠿</div>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={host.avatar_url} alt={host.name} className="h-12 w-12 rounded-full object-cover bg-gray-100" />
         <div>
