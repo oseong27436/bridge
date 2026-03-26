@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import type { DbGallery } from "@/lib/db";
+import ImageUpload from "@/components/admin/image-upload";
 
 export default function AdminGalleryPage() {
   const [items, setItems] = useState<DbGallery[]>([]);
@@ -61,14 +62,8 @@ export default function AdminGalleryPage() {
             <h2 className="text-lg font-bold mb-4">사진 추가</h2>
             <div className="space-y-3">
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">이미지 URL *</label>
-                <input
-                  type="text"
-                  value={form.image_url}
-                  onChange={(e) => setForm((f) => ({ ...f, image_url: e.target.value }))}
-                  placeholder="https://..."
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-                />
+                <label className="block text-xs font-semibold text-gray-600 mb-1">이미지</label>
+                <ImageUpload value={form.image_url} onChange={(url) => setForm((f) => ({ ...f, image_url: url }))} folder="gallery" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1">캡션</label>
@@ -88,12 +83,6 @@ export default function AdminGalleryPage() {
                   className="w-24 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary"
                 />
               </div>
-              {form.image_url && (
-                <div className="rounded-xl overflow-hidden border border-gray-200 aspect-video bg-gray-50">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={form.image_url} alt="preview" className="h-full w-full object-cover" />
-                </div>
-              )}
             </div>
             <div className="flex gap-2 mt-5 justify-end">
               <button onClick={() => setShowForm(false)} className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-semibold hover:bg-gray-50">

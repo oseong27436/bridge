@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import type { DbHost } from "@/lib/db";
+import ImageUpload from "@/components/admin/image-upload";
 
 const EMPTY_FORM = {
   name: "",
@@ -127,7 +128,10 @@ export default function AdminHostsPage() {
                 <Field label="이름" name="name" />
                 <Field label="위치" name="location" />
               </div>
-              <Field label="아바타 이미지 URL" name="avatar_url" />
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">아바타 이미지</label>
+                <ImageUpload value={form.avatar_url} onChange={(url) => setForm((f) => ({ ...f, avatar_url: url }))} folder="hosts" />
+              </div>
               <Field label="언어 (쉼표로 구분, 예: 한국어, 日本語)" name="langs" />
               <Field label="소개" name="bio" textarea />
               <div>

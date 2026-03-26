@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import type { DbEvent } from "@/lib/db";
+import ImageUpload from "@/components/admin/image-upload";
 
 const EMPTY_FORM = {
   title: "",
@@ -187,9 +188,10 @@ export default function AdminEventsPage() {
                 </div>
               </div>
               <Field label="장소" name="location" />
-              <div className="grid grid-cols-2 gap-2">
-                <Field label="지도 URL" name="location_url" />
-                <Field label="이미지 URL" name="image_url" />
+              <Field label="지도 URL" name="location_url" />
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">이미지</label>
+                <ImageUpload value={form.image_url} onChange={(url) => setForm((f) => ({ ...f, image_url: url }))} folder="events" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1">정원 (선택)</label>
