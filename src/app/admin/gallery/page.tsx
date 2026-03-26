@@ -7,7 +7,7 @@ import ImageUpload from "@/components/admin/image-upload";
 import { useLanguage } from "@/context/language-context";
 import { translations } from "@/lib/i18n";
 import {
-  DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent,
+  DndContext, closestCenter, PointerSensor, TouchSensor, useSensor, useSensors, DragEndEvent,
 } from "@dnd-kit/core";
 import {
   SortableContext, useSortable, arrayMove, rectSortingStrategy,
@@ -58,7 +58,10 @@ export default function AdminGalleryPage() {
   const [form, setForm] = useState({ image_url: "", caption: "" });
   const [saving, setSaving] = useState(false);
 
-  const sensors = useSensors(useSensor(PointerSensor));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor,   { activationConstraint: { delay: 200, tolerance: 8 } })
+  );
 
   async function load() {
     const supabase = createClient();
