@@ -81,54 +81,56 @@ export default function HomePage() {
       <main className="flex-1">
 
         {/* ── HERO ──────────────────────────────────────────────────── */}
-        <section className="bg-white border-b border-gray-100">
-          <div className="mx-auto max-w-6xl px-4 sm:px-6 py-10 sm:py-16 flex flex-col md:flex-row items-center gap-8">
-            <div className="flex-1">
-              <h1 className="text-4xl sm:text-5xl font-extrabold text-gray-900 leading-tight mb-3">
-                BRIDGE<br /><span className="text-primary">OSAKA</span>
-              </h1>
-              <p className="text-gray-500 text-base mb-6">{tr.hero_tagline}</p>
-              <Link href="/events" className="inline-flex items-center gap-1.5 rounded-full bg-primary px-6 py-2.5 text-sm font-bold text-white hover:bg-primary/90 transition-colors shadow-sm">
-                {tr.hero_cta}
-              </Link>
-            </div>
-            <div className="w-full md:w-[480px] shrink-0 aspect-[4/3] rounded-2xl overflow-hidden shadow-md">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={siteImgs.hero} alt="Bridge Osaka" className="h-full w-full object-cover" />
-            </div>
+        <section className="relative min-h-[92vh] flex flex-col">
+          {/* Background image */}
+          <div className="absolute inset-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={siteImgs.hero} alt="Bridge Osaka" className="h-full w-full object-cover" />
+            <div className="absolute inset-0 bg-gradient-to-b from-black/55 via-black/20 to-black/70" />
           </div>
 
-          {/* Filter chips */}
-          <div className="mx-auto max-w-6xl px-4 sm:px-6 pb-6 space-y-3">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-bold text-gray-400 uppercase tracking-wide w-20 shrink-0">{tr.event_type}</span>
-              <div className="flex flex-wrap gap-2">
-                {CATEGORY_FILTERS.map((cat) => (
-                  <Link key={cat} href="/events" className="rounded-full border border-gray-200 bg-white px-3.5 py-1 text-xs font-semibold text-gray-600 hover:border-primary hover:text-primary hover:bg-orange-50 transition-colors">{cat}</Link>
-                ))}
+          {/* Main text — vertically centered */}
+          <div className="relative z-10 flex-1 flex flex-col items-center justify-center text-center px-4 pb-32">
+            <p className="text-white/70 text-xs font-bold tracking-[0.3em] uppercase mb-4">Osaka International Community</p>
+            <h1 className="text-6xl sm:text-8xl md:text-9xl font-extrabold text-white leading-none mb-4 drop-shadow-lg">
+              BRIDGE<br /><span className="text-primary">OSAKA</span>
+            </h1>
+            <p className="text-white/80 text-lg sm:text-xl mb-8 max-w-md">{tr.hero_tagline}</p>
+            <Link href="/events" className="inline-flex items-center gap-2 rounded-full bg-primary px-8 py-3.5 text-base font-bold text-white hover:bg-primary/90 transition-colors shadow-xl">
+              {tr.hero_cta} →
+            </Link>
+          </div>
+
+          {/* Filter bar — pinned to bottom */}
+          <div className="relative z-10 bg-white/10 backdrop-blur-md border-t border-white/20">
+            <div className="mx-auto max-w-6xl px-4 sm:px-6 py-4 space-y-2.5">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold text-white/60 uppercase tracking-wide w-20 shrink-0">{tr.event_type}</span>
+                <div className="flex flex-wrap gap-2">
+                  {CATEGORY_FILTERS.map((cat) => (
+                    <Link key={cat} href="/events" className="rounded-full border border-white/40 bg-white/10 px-3.5 py-1 text-xs font-semibold text-white hover:bg-white hover:text-gray-800 transition-colors">{cat}</Link>
+                  ))}
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-bold text-gray-400 uppercase tracking-wide w-20 shrink-0">
-                {lang === "ja" ? "言語" : lang === "ko" ? "언어" : "Language"}
-              </span>
-              <div className="flex flex-wrap gap-2">
-                {LANG_FILTERS.map((l) => (
-                  <button key={l} onClick={() => setActiveLang(activeLang === l ? null : l)}
-                    className={`rounded-full border px-3.5 py-1 text-xs font-semibold transition-colors ${activeLang === l ? "bg-primary border-primary text-white" : "border-gray-200 bg-white text-gray-600 hover:border-primary hover:text-primary"}`}>
-                    {l}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="w-20 shrink-0" />
-              <div className="flex-1 max-w-sm flex items-center gap-2 border border-gray-200 rounded-full px-4 py-2 bg-white shadow-sm">
-                <svg className="h-4 w-4 text-gray-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                <input type="text" placeholder={lang === "ja" ? "イベント名・場所で検索..." : lang === "ko" ? "이벤트명·장소 검색..." : "Search events, venues..."}
-                  className="flex-1 text-sm outline-none text-gray-700 bg-transparent" />
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold text-white/60 uppercase tracking-wide w-20 shrink-0">
+                  {lang === "ja" ? "言語" : lang === "ko" ? "언어" : "Lang"}
+                </span>
+                <div className="flex flex-wrap gap-2">
+                  {LANG_FILTERS.map((l) => (
+                    <button key={l} onClick={() => setActiveLang(activeLang === l ? null : l)}
+                      className={`rounded-full border px-3.5 py-1 text-xs font-semibold transition-colors ${activeLang === l ? "bg-primary border-primary text-white" : "border-white/40 bg-white/10 text-white hover:bg-white hover:text-gray-800"}`}>
+                      {l}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-2 ml-2 flex-1 max-w-xs bg-white/10 border border-white/30 rounded-full px-4 py-1.5">
+                  <svg className="h-3.5 w-3.5 text-white/60 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  <input type="text" placeholder={lang === "ja" ? "検索..." : lang === "ko" ? "검색..." : "Search..."}
+                    className="flex-1 text-xs outline-none text-white bg-transparent placeholder:text-white/50" />
+                </div>
               </div>
             </div>
           </div>
