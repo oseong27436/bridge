@@ -100,6 +100,14 @@ export async function getGallery(): Promise<DbGallery[]> {
   return data ?? [];
 }
 
+export async function getSettings(): Promise<Record<string, string>> {
+  const supabase = createClient();
+  const { data } = await supabase.from("bridge_settings").select("key, value");
+  const result: Record<string, string> = {};
+  (data ?? []).forEach((row: { key: string; value: string }) => { result[row.key] = row.value; });
+  return result;
+}
+
 export async function getReviews(): Promise<DbReview[]> {
   const supabase = createClient();
   const { data } = await supabase

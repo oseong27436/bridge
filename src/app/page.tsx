@@ -6,16 +6,18 @@ import { useLanguage } from "@/context/language-context";
 import { translations } from "@/lib/i18n";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
-import { getEvents, getHosts, getGallery, getReviews, eventTitle, eventDesc, hostBio, type DbEvent, type DbHost, type DbGallery } from "@/lib/db";
+import { getEvents, getHosts, getGallery, getReviews, getSettings, eventTitle, eventDesc, hostBio, type DbEvent, type DbHost, type DbGallery } from "@/lib/db";
 
 const LANG_FILTERS = ["日本語", "한국어", "English", "中文"];
 
-const EVENT_TYPE_IMGS: Record<string, string> = {
+const FALLBACK_IMGS: Record<string, string> = {
+  hero:    "https://images.unsplash.com/photo-1543353071-873f17a7a088?w=960&q=80",
   meetup:  "https://images.unsplash.com/photo-1543353071-873f17a7a088?w=600&q=80",
   party:   "https://images.unsplash.com/photo-1514190051997-0f6f39ca5cde?w=600&q=80",
   food:    "https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=600&q=80",
   sports:  "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=600&q=80",
   culture: "https://images.unsplash.com/photo-1528360983277-13d401cdc186?w=400&q=80",
+  about:   "https://images.unsplash.com/photo-1480796927426-f609979314bd?w=800&q=80",
 };
 
 function EmptyState({ icon, message, sub, href, cta }: { icon: string; message: string; sub?: string; href?: string; cta?: string }) {
@@ -42,14 +44,24 @@ export default function HomePage() {
   const [events, setEvents] = useState<DbEvent[]>([]);
   const [hosts, setHosts] = useState<DbHost[]>([]);
   const [gallery, setGallery] = useState<DbGallery[]>([]);
+  const [siteImgs, setSiteImgs] = useState<Record<string, string>>(FALLBACK_IMGS);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([getEvents(), getHosts(), getGallery(), getReviews()]).then(
-      ([ev, ho, ga]) => {
+    Promise.all([getEvents(), getHosts(), getGallery(), getReviews(), getSettings()]).then(
+      ([ev, ho, ga, , cfg]) => {
         setEvents(ev);
         setHosts(ho);
         setGallery(ga);
+        setSiteImgs({
+          hero:    cfg.hero_image    || FALLBACK_IMGS.hero,
+          meetup:  cfg.meetup_image  || FALLBACK_IMGS.meetup,
+          party:   cfg.party_image   || FALLBACK_IMGS.party,
+          food:    cfg.food_image    || FALLBACK_IMGS.food,
+          sports:  FALLBACK_IMGS.sports,
+          culture: FALLBACK_IMGS.culture,
+          about:   cfg.about_image   || FALLBACK_IMGS.about,
+        });
         setLoading(false);
       }
     );
@@ -58,9 +70,9 @@ export default function HomePage() {
   const CATEGORY_FILTERS = [tr.cat_meetup, tr.cat_party, tr.cat_sports, tr.cat_food, tr.cat_culture];
 
   const EVENT_TYPES = [
-    { href: "/events?category=meetup", img: EVENT_TYPE_IMGS.meetup,  title: tr.cat_meetup,  description: tr.meetup_desc },
-    { href: "/events?category=party",  img: EVENT_TYPE_IMGS.party,   title: tr.cat_party,   description: tr.party_desc  },
-    { href: "/events?category=food",   img: EVENT_TYPE_IMGS.food,    title: tr.cat_food,    description: tr.food_desc   },
+    { href: "/events?category=meetup", img: siteImgs.meetup, title: tr.cat_meetup, description: tr.meetup_desc },
+    { href: "/events?category=party",  img: siteImgs.party,  title: tr.cat_party,  description: tr.party_desc  },
+    { href: "/events?category=food",   img: siteImgs.food,   title: tr.cat_food,   description: tr.food_desc   },
   ];
 
   return (
@@ -82,7 +94,7 @@ export default function HomePage() {
             </div>
             <div className="w-full md:w-[480px] shrink-0 aspect-[4/3] rounded-2xl overflow-hidden shadow-md">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="https://images.unsplash.com/photo-1543353071-873f17a7a088?w=960&q=80" alt="Bridge Osaka" className="h-full w-full object-cover" />
+              <img src={siteImgs.hero} alt="Bridge Osaka" className="h-full w-full object-cover" />
             </div>
           </div>
 
@@ -145,7 +157,7 @@ export default function HomePage() {
           <div className="mx-auto max-w-6xl px-4 sm:px-6 py-12 flex flex-col md:flex-row gap-10 items-center">
             <div className="w-full md:w-1/2 aspect-video rounded-2xl overflow-hidden bg-gray-200 shrink-0 shadow-sm">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="https://images.unsplash.com/photo-1480796927426-f609979314bd?w=800&q=80" alt="Osaka" className="h-full w-full object-cover" />
+              <img src={siteImgs.about} alt="Osaka" className="h-full w-full object-cover" />
             </div>
             <div>
               <h2 className="text-2xl font-bold text-gray-900 mb-4">{tr.about_bridge}</h2>
@@ -182,7 +194,7 @@ export default function HomePage() {
                   className="group flex gap-3 rounded-2xl border border-gray-200 bg-white p-3 hover:shadow-md transition-shadow">
                   <div className="w-24 h-24 shrink-0 rounded-xl overflow-hidden bg-gray-100">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={event.image_url || EVENT_TYPE_IMGS[event.category] || EVENT_TYPE_IMGS.meetup} alt={eventTitle(event, lang)} className="h-full w-full object-cover" />
+                    <img src={event.image_url || siteImgs[event.category] || siteImgs.meetup} alt={eventTitle(event, lang)} className="h-full w-full object-cover" />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap gap-1 mb-1.5">
@@ -244,7 +256,7 @@ export default function HomePage() {
               {events.map((event) => (
                 <div key={event.id} className="relative shrink-0 w-full snap-start overflow-hidden" style={{ minHeight: 320 }}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={event.image_url || EVENT_TYPE_IMGS[event.category] || EVENT_TYPE_IMGS.meetup} alt={eventTitle(event, lang)} className="absolute inset-0 h-full w-full object-cover" />
+                  <img src={event.image_url || siteImgs[event.category] || siteImgs.meetup} alt={eventTitle(event, lang)} className="absolute inset-0 h-full w-full object-cover" />
                   <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/40 to-transparent" />
                   <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 py-16 flex flex-col justify-center h-full">
                     <p className="text-white/60 text-xs mb-2 uppercase tracking-wide">{event.date}</p>

@@ -4,13 +4,56 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import type { DbGallery } from "@/lib/db";
 import ImageUpload from "@/components/admin/image-upload";
+import {
+  DndContext, closestCenter, PointerSensor, useSensor, useSensors, DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext, useSortable, arrayMove, rectSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+
+function SortablePhoto({ item, onDelete }: { item: DbGallery; onDelete: (id: string) => void }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition }}
+      className={`group relative rounded-2xl overflow-hidden bg-gray-100 aspect-square ${isDragging ? "shadow-xl opacity-80 z-50" : ""}`}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={item.image_url} alt={item.caption} className="h-full w-full object-cover" />
+      <div
+        {...attributes}
+        {...listeners}
+        className="absolute top-2 left-2 cursor-grab active:cursor-grabbing bg-black/40 text-white rounded-lg px-1.5 py-0.5 text-sm select-none"
+      >
+        ⠿
+      </div>
+      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
+        <button
+          onClick={() => onDelete(item.id)}
+          className="opacity-0 group-hover:opacity-100 transition-opacity rounded-full bg-red-500 text-white text-xs font-bold px-3 py-1.5"
+        >
+          삭제
+        </button>
+      </div>
+      {item.caption && (
+        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2">
+          <p className="text-white text-xs truncate">{item.caption}</p>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function AdminGalleryPage() {
   const [items, setItems] = useState<DbGallery[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ image_url: "", caption: "", sort_order: "" });
+  const [form, setForm] = useState({ image_url: "", caption: "" });
   const [saving, setSaving] = useState(false);
+
+  const sensors = useSensors(useSensor(PointerSensor));
 
   async function load() {
     const supabase = createClient();
@@ -21,6 +64,17 @@ export default function AdminGalleryPage() {
 
   useEffect(() => { load(); }, []);
 
+  async function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = items.findIndex((i) => i.id === active.id);
+    const newIndex = items.findIndex((i) => i.id === over.id);
+    const reordered = arrayMove(items, oldIndex, newIndex);
+    setItems(reordered);
+    const supabase = createClient();
+    await Promise.all(reordered.map((item, i) => supabase.from("bridge_gallery").update({ sort_order: i }).eq("id", item.id)));
+  }
+
   async function handleAdd() {
     if (!form.image_url) return;
     setSaving(true);
@@ -28,25 +82,27 @@ export default function AdminGalleryPage() {
     await supabase.from("bridge_gallery").insert({
       image_url: form.image_url,
       caption: form.caption,
-      sort_order: parseInt(form.sort_order) || (items.length * 10),
+      sort_order: items.length,
     });
     setSaving(false);
-    setForm({ image_url: "", caption: "", sort_order: "" });
+    setForm({ image_url: "", caption: "" });
     setShowForm(false);
     load();
   }
 
   async function handleDelete(id: string) {
     if (!confirm("사진을 삭제하시겠습니까?")) return;
-    const supabase = createClient();
-    await supabase.from("bridge_gallery").delete().eq("id", id);
+    await createClient().from("bridge_gallery").delete().eq("id", id);
     load();
   }
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">갤러리 관리</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">갤러리 관리</h1>
+          <p className="text-xs text-gray-400 mt-0.5">드래그로 순서 변경</p>
+        </div>
         <button
           onClick={() => setShowForm(true)}
           className="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-primary/90 transition-colors"
@@ -55,7 +111,6 @@ export default function AdminGalleryPage() {
         </button>
       </div>
 
-      {/* Add Form */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
           <div className="bg-white rounded-2xl w-full max-w-md mx-4 p-6 shadow-xl">
@@ -74,15 +129,6 @@ export default function AdminGalleryPage() {
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
                 />
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">정렬 순서</label>
-                <input
-                  type="number"
-                  value={form.sort_order}
-                  onChange={(e) => setForm((f) => ({ ...f, sort_order: e.target.value }))}
-                  className="w-24 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary"
-                />
-              </div>
             </div>
             <div className="flex gap-2 mt-5 justify-end">
               <button onClick={() => setShowForm(false)} className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-semibold hover:bg-gray-50">
@@ -97,7 +143,6 @@ export default function AdminGalleryPage() {
         </div>
       )}
 
-      {/* Grid */}
       {loading ? (
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 animate-pulse">
           {[1,2,3,4,5,6].map((i) => <div key={i} className="aspect-square rounded-2xl bg-gray-100" />)}
@@ -109,27 +154,15 @@ export default function AdminGalleryPage() {
           <button onClick={() => setShowForm(true)} className="mt-3 text-sm text-primary hover:underline">첫 사진 추가</button>
         </div>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-          {items.map((item) => (
-            <div key={item.id} className="group relative rounded-2xl overflow-hidden bg-gray-100 aspect-square">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={item.image_url} alt={item.caption} className="h-full w-full object-cover" />
-              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
-                <button
-                  onClick={() => handleDelete(item.id)}
-                  className="opacity-0 group-hover:opacity-100 transition-opacity rounded-full bg-red-500 text-white text-xs font-bold px-3 py-1.5"
-                >
-                  삭제
-                </button>
-              </div>
-              {item.caption && (
-                <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2">
-                  <p className="text-white text-xs truncate">{item.caption}</p>
-                </div>
-              )}
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={items.map((i) => i.id)} strategy={rectSortingStrategy}>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              {items.map((item) => (
+                <SortablePhoto key={item.id} item={item} onDelete={handleDelete} />
+              ))}
             </div>
-          ))}
-        </div>
+          </SortableContext>
+        </DndContext>
       )}
     </div>
   );

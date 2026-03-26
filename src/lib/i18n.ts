@@ -114,6 +114,7 @@ export const translations = {
     admin_events: "イベント管理",
     admin_hosts: "ホスト管理",
     admin_gallery: "ギャラリー管理",
+    admin_settings: "サイト設定",
     admin_back: "← サイトに戻る",
   },
 
@@ -221,6 +222,7 @@ export const translations = {
     admin_events: "이벤트 관리",
     admin_hosts: "호스트 관리",
     admin_gallery: "갤러리 관리",
+    admin_settings: "사이트 설정",
     admin_back: "← 사이트로 돌아가기",
   },
 
@@ -328,6 +330,7 @@ export const translations = {
     admin_events: "Events",
     admin_hosts: "Hosts",
     admin_gallery: "Gallery",
+    admin_settings: "Site Settings",
     admin_back: "← Back to site",
   },
 } as const;
