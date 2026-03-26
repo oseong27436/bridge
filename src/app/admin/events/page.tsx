@@ -23,6 +23,36 @@ const EMPTY_FORM = {
 
 type FormData = typeof EMPTY_FORM;
 
+function Field({ label, name, textarea, type = "text", form, setForm }: {
+  label: string;
+  name: keyof FormData;
+  textarea?: boolean;
+  type?: string;
+  form: FormData;
+  setForm: React.Dispatch<React.SetStateAction<FormData>>;
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-semibold text-gray-600 mb-1">{label}</label>
+      {textarea ? (
+        <textarea
+          rows={3}
+          value={form[name]}
+          onChange={(e) => setForm((f) => ({ ...f, [name]: e.target.value }))}
+          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+        />
+      ) : (
+        <input
+          type={type}
+          value={form[name]}
+          onChange={(e) => setForm((f) => ({ ...f, [name]: e.target.value }))}
+          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+        />
+      )}
+    </div>
+  );
+}
+
 export default function AdminEventsPage() {
   const { lang } = useLanguage();
   const tr = translations[lang];
@@ -106,29 +136,6 @@ export default function AdminEventsPage() {
     load();
   }
 
-  function Field({ label, name, textarea, type = "text" }: { label: string; name: keyof FormData; textarea?: boolean; type?: string }) {
-    return (
-      <div>
-        <label className="block text-xs font-semibold text-gray-600 mb-1">{label}</label>
-        {textarea ? (
-          <textarea
-            rows={3}
-            value={form[name]}
-            onChange={(e) => setForm((f) => ({ ...f, [name]: e.target.value }))}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-          />
-        ) : (
-          <input
-            type={type}
-            value={form[name]}
-            onChange={(e) => setForm((f) => ({ ...f, [name]: e.target.value }))}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-          />
-        )}
-      </div>
-    );
-  }
-
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -146,8 +153,8 @@ export default function AdminEventsPage() {
           <div className="bg-white rounded-2xl w-full max-w-lg mx-4 p-6 shadow-xl">
             <h2 className="text-lg font-bold mb-4">{editId ? tr.admin_edit_event : tr.admin_new_event_title}</h2>
             <div className="space-y-3">
-              <Field label={tr.field_title} name="title" />
-              <Field label={tr.field_description} name="description" textarea />
+              <Field label={tr.field_title} name="title" form={form} setForm={setForm} />
+              <Field label={tr.field_description} name="description" textarea form={form} setForm={setForm} />
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs font-semibold text-gray-600 mb-1">{tr.field_category}</label>
@@ -190,8 +197,8 @@ export default function AdminEventsPage() {
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary" />
                 </div>
               </div>
-              <Field label={tr.field_location} name="location" />
-              <Field label={tr.field_map_url} name="location_url" />
+              <Field label={tr.field_location} name="location" form={form} setForm={setForm} />
+              <Field label={tr.field_map_url} name="location_url" form={form} setForm={setForm} />
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1">{tr.field_image}</label>
                 <ImageUpload value={form.image_url} onChange={(url) => setForm((f) => ({ ...f, image_url: url }))} folder="events" />

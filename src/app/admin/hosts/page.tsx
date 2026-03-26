@@ -19,6 +19,27 @@ const EMPTY_FORM = {
 };
 type FormData = typeof EMPTY_FORM;
 
+function Field({ label, name, textarea, form, setForm }: {
+  label: string;
+  name: keyof FormData;
+  textarea?: boolean;
+  form: FormData;
+  setForm: React.Dispatch<React.SetStateAction<FormData>>;
+}) {
+  return (
+    <div>
+      <label className="block text-xs font-semibold text-gray-600 mb-1">{label}</label>
+      {textarea ? (
+        <textarea rows={3} value={form[name]} onChange={(e) => setForm((f) => ({ ...f, [name]: e.target.value }))}
+          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
+      ) : (
+        <input type="text" value={form[name]} onChange={(e) => setForm((f) => ({ ...f, [name]: e.target.value }))}
+          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
+      )}
+    </div>
+  );
+}
+
 function SortableCard({ host, onEdit, onDelete, editLabel, deleteLabel }: {
   host: DbHost;
   onEdit: (h: DbHost) => void;
@@ -117,21 +138,6 @@ export default function AdminHostsPage() {
     load();
   }
 
-  function Field({ label, name, textarea }: { label: string; name: keyof FormData; textarea?: boolean }) {
-    return (
-      <div>
-        <label className="block text-xs font-semibold text-gray-600 mb-1">{label}</label>
-        {textarea ? (
-          <textarea rows={3} value={form[name]} onChange={(e) => setForm((f) => ({ ...f, [name]: e.target.value }))}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
-        ) : (
-          <input type="text" value={form[name]} onChange={(e) => setForm((f) => ({ ...f, [name]: e.target.value }))}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20" />
-        )}
-      </div>
-    );
-  }
-
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -150,15 +156,15 @@ export default function AdminHostsPage() {
             <h2 className="text-lg font-bold mb-4">{editId ? tr.admin_edit_host : tr.admin_new_host_title}</h2>
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-2">
-                <Field label={tr.field_name} name="name" />
-                <Field label={tr.field_position} name="location" />
+                <Field label={tr.field_name} name="name" form={form} setForm={setForm} />
+                <Field label={tr.field_position} name="location" form={form} setForm={setForm} />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1">{tr.field_avatar}</label>
                 <ImageUpload value={form.avatar_url} onChange={(url) => setForm((f) => ({ ...f, avatar_url: url }))} folder="hosts" />
               </div>
-              <Field label={tr.field_langs} name="langs" />
-              <Field label={tr.field_bio} name="bio" textarea />
+              <Field label={tr.field_langs} name="langs" form={form} setForm={setForm} />
+              <Field label={tr.field_bio} name="bio" textarea form={form} setForm={setForm} />
             </div>
             <div className="flex gap-2 mt-5 justify-end">
               <button onClick={() => setShowForm(false)} className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-semibold hover:bg-gray-50">{tr.admin_cancel}</button>
