@@ -19,13 +19,13 @@ function SortablePhoto({ item, onDelete, deleteLabel }: { item: DbGallery; onDel
   return (
     <div
       ref={setNodeRef}
+      {...attributes}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={`group relative rounded-2xl overflow-hidden bg-gray-100 aspect-square ${isDragging ? "shadow-xl opacity-80 z-50" : ""}`}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={item.image_url} alt={item.caption} className="h-full w-full object-cover" />
       <div
-        {...attributes}
         {...listeners}
         className="absolute top-2 left-2 cursor-grab active:cursor-grabbing bg-black/40 text-white rounded-lg px-1.5 py-0.5 text-sm select-none"
       >
