@@ -321,7 +321,7 @@ export default function HomePage() {
         )}
 
         {/* ── GALLERY ───────────────────────────────────────────────── */}
-        <section id="gallery" className="mx-auto max-w-6xl px-4 sm:px-6 pb-12">
+        <section id="gallery" className="mx-auto max-w-6xl px-4 sm:px-6 py-12">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">{tr.photo_gallery}</h2>
           {loading ? (
             <div className="grid grid-cols-3 gap-3">
