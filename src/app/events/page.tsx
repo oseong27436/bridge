@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
-import { getEvents, eventTitle, eventLocation, type DbEvent } from "@/lib/db";
+import { getEvents, getSettings, eventTitle, eventLocation, type DbEvent } from "@/lib/db";
 import { useLanguage } from "@/context/language-context";
 import { translations } from "@/lib/i18n";
 import { createClient } from "@/lib/supabase";
@@ -33,6 +33,7 @@ export default function EventsPage() {
 
   const [events, setEvents] = useState<DbEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [eventsImage, setEventsImage] = useState("https://images.unsplash.com/photo-1514190051997-0f6f39ca5cde?w=1600&q=80");
   const [userId, setUserId] = useState<string | null>(null);
   // Set of event IDs the user has a non-cancelled registration for
   const [registeredIds, setRegisteredIds] = useState<Set<string>>(new Set());
@@ -46,6 +47,7 @@ export default function EventsPage() {
 
   useEffect(() => {
     getEvents().then((data) => { setEvents(data); setLoading(false); });
+    getSettings().then((cfg) => { if (cfg.events_image) setEventsImage(cfg.events_image); });
 
     // Load current user + their registrations
     const supabase = createClient();
@@ -120,7 +122,7 @@ export default function EventsPage() {
         {/* ── HERO ──────────────────────────────────────────────────── */}
         <section className="relative h-48 sm:h-64 overflow-hidden">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="https://images.unsplash.com/photo-1514190051997-0f6f39ca5cde?w=1600&q=80" alt="" className="absolute inset-0 h-full w-full object-cover" />
+          <img src={eventsImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
           <div className="absolute inset-0 bg-black/50" />
           <div className="relative z-10 h-full flex flex-col justify-end max-w-6xl mx-auto px-4 sm:px-6 pb-5">
             <nav className="text-xs text-white/60 mb-1.5">

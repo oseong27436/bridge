@@ -19,6 +19,8 @@ export interface DbEvent {
   location_url: string | null;
   image_url: string;
   capacity: number | null;
+  fee_type: "free" | "paid" | "tba";
+  fee_amount: number | null;
   created_by: string | null;
   created_at: string;
 }

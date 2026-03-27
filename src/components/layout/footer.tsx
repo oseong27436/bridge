@@ -9,23 +9,11 @@ function LineIcon({ className }: { className?: string }) {
   );
 }
 
-const LINKS = {
-  platform: [
-    { href: "/events", label: "Events" },
-    { href: "/about", label: "About Bridge" },
-    { href: "/contact", label: "Contact" },
-  ],
-  legal: [
-    { href: "/terms", label: "Terms of Service" },
-    { href: "/privacy", label: "Privacy Policy" },
-  ],
-};
-
 export default function Footer() {
   return (
     <footer className="border-t border-border bg-white mt-auto">
       <div className="mx-auto max-w-6xl px-4 sm:px-6 py-10">
-        <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-8 md:grid-cols-3">
           {/* Brand */}
           <div className="col-span-2 md:col-span-2">
             <Link href="/" className="flex items-center gap-2">
@@ -63,41 +51,27 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* Platform links */}
+          {/* Links */}
           <div>
             <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-              Platform
+              Bridge
             </h3>
             <ul className="space-y-2">
-              {LINKS.platform.map((link) => (
-                <li key={link.href}>
-                  <Link
-                    href={link.href}
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Legal links */}
-          <div>
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
-              Legal
-            </h3>
-            <ul className="space-y-2">
-              {LINKS.legal.map((link) => (
-                <li key={link.href}>
-                  <Link
-                    href={link.href}
-                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
+              <li>
+                <Link href="/events" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                  Events
+                </Link>
+              </li>
+              <li>
+                <Link href="/#gallery" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                  Gallery
+                </Link>
+              </li>
+              <li>
+                <Link href="/#hosts" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                  Hosts
+                </Link>
+              </li>
             </ul>
           </div>
         </div>
@@ -106,7 +80,7 @@ export default function Footer() {
           <p className="text-xs text-muted-foreground">
             © {new Date().getFullYear()} Bridge Osaka. All rights reserved.
           </p>
-          <p className="text-xs text-muted-foreground">Osaka, Japan 🇯🇵</p>
+          <p className="text-xs text-muted-foreground">Built by oseong</p>
         </div>
       </div>
     </footer>

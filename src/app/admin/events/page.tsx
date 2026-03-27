@@ -20,6 +20,8 @@ const EMPTY_FORM = {
   location_url: "",
   image_url: "",
   capacity: "",
+  fee_type: "free",  // "free" | "paid" | "tba"
+  fee_amount: "",
 };
 
 type FormData = typeof EMPTY_FORM;
@@ -97,6 +99,8 @@ export default function AdminEventsPage() {
       location_url: e.location_url ?? "",
       image_url: e.image_url,
       capacity: e.capacity?.toString() ?? "",
+      fee_type: e.fee_type ?? "free",
+      fee_amount: e.fee_amount?.toString() ?? "",
     });
     setShowForm(true);
   }
@@ -123,6 +127,8 @@ export default function AdminEventsPage() {
       location_url: form.location_type === "tba" ? null : form.location_url || null,
       image_url: form.image_url,
       capacity: form.capacity ? parseInt(form.capacity) : null,
+      fee_type: form.fee_type,
+      fee_amount: form.fee_type === "paid" && form.fee_amount ? parseInt(form.fee_amount) : null,
     };
 
     if (editId) {
@@ -224,11 +230,36 @@ export default function AdminEventsPage() {
                 <label className="block text-xs font-semibold text-gray-600 mb-1">{tr.field_image}</label>
                 <ImageUpload value={form.image_url} onChange={(url) => setForm((f) => ({ ...f, image_url: url }))} folder="events" />
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">{tr.field_capacity}</label>
-                <input type="number" value={form.capacity} onChange={(e) => setForm((f) => ({ ...f, capacity: e.target.value }))}
-                  className="w-32 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary" />
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">{tr.field_capacity}</label>
+                  <input type="number" value={form.capacity} onChange={(e) => setForm((f) => ({ ...f, capacity: e.target.value }))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary" />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">{tr.field_fee_type}</label>
+                  <select
+                    value={form.fee_type}
+                    onChange={(e) => setForm((f) => ({ ...f, fee_type: e.target.value, fee_amount: "" }))}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary"
+                  >
+                    <option value="free">{tr.fee_free}</option>
+                    <option value="paid">{tr.fee_paid}</option>
+                    <option value="tba">{tr.fee_tba}</option>
+                  </select>
+                </div>
               </div>
+              {form.fee_type === "paid" && (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">{tr.field_fee_amount}</label>
+                  <div className="flex items-center gap-1">
+                    <span className="text-sm text-gray-500">¥</span>
+                    <input type="number" value={form.fee_amount} onChange={(e) => setForm((f) => ({ ...f, fee_amount: e.target.value }))}
+                      placeholder="1500"
+                      className="w-32 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary" />
+                  </div>
+                </div>
+              )}
             </div>
             <div className="flex gap-2 mt-5 justify-end">
               <button onClick={() => setShowForm(false)} className="rounded-xl border border-gray-300 px-4 py-2 text-sm font-semibold hover:bg-gray-50">

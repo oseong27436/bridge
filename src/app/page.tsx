@@ -217,7 +217,7 @@ export default function HomePage() {
           )}
 
           {/* Hosts */}
-          <h3 className="text-lg font-bold text-gray-800 mt-10 mb-4">
+          <h3 id="hosts" className="text-lg font-bold text-gray-800 mt-10 mb-4">
             {lang === "ja" ? "ホストを紹介" : lang === "ko" ? "호스트 소개" : "Meet our hosts"}
           </h3>
           {loading ? (
@@ -289,7 +289,7 @@ export default function HomePage() {
         </section>
 
         {/* ── GALLERY ───────────────────────────────────────────────── */}
-        <section className="mx-auto max-w-6xl px-4 sm:px-6 pb-12">
+        <section id="gallery" className="mx-auto max-w-6xl px-4 sm:px-6 pb-12">
           <h2 className="text-2xl font-bold text-gray-900 mb-6">{tr.photo_gallery}</h2>
           {loading ? (
             <div className="grid grid-cols-3 gap-3">

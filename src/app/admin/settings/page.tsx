@@ -15,6 +15,7 @@ export default function AdminSettingsPage() {
     { key: "meetup_image", label: tr.admin_meetup_image, maxWidth: 1200, quality: 0.88 },
     { key: "party_image",  label: tr.admin_party_image,  maxWidth: 1200, quality: 0.88 },
     { key: "food_image",   label: tr.admin_food_image,   maxWidth: 1200, quality: 0.88 },
+    { key: "events_image", label: tr.admin_events_image, maxWidth: 1600, quality: 0.93 },
     { key: "about_image",  label: tr.admin_about_image,  maxWidth: 1600, quality: 0.93 },
   ];
 

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { MapPin, Calendar, Clock, Users, ChevronLeft } from "lucide-react";
+import { MapPin, Calendar, Clock, Users, ChevronLeft, Banknote, CheckCircle2, AlertCircle } from "lucide-react";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import { getEventById, eventTitle, eventDesc, eventLocation, type DbEvent } from "@/lib/db";
@@ -23,6 +23,7 @@ export default function EventDetailPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [isRegistered, setIsRegistered] = useState(false);
   const [registrationId, setRegistrationId] = useState<string | null>(null);
+  const [regStatus, setRegStatus] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
   const [cancelling, setCancelling] = useState(false);
 
@@ -49,6 +50,7 @@ export default function EventDetailPage() {
       if (data) {
         setIsRegistered(true);
         setRegistrationId(data.id);
+        setRegStatus(data.status);
       }
     });
   }, [id, router]);
@@ -62,7 +64,7 @@ export default function EventDetailPage() {
       .insert({ event_id: id, user_id: userId, status: "pending" })
       .select("id")
       .single();
-    if (data) { setRegistrationId(data.id); setIsRegistered(true); }
+    if (data) { setRegistrationId(data.id); setIsRegistered(true); setRegStatus("pending"); }
     setApplying(false);
   }
 
@@ -74,6 +76,7 @@ export default function EventDetailPage() {
     await supabase.from("bridge_registrations").update({ status: "cancelled" }).eq("id", registrationId);
     setIsRegistered(false);
     setRegistrationId(null);
+    setRegStatus(null);
     setCancelling(false);
   }
 
@@ -169,6 +172,20 @@ export default function EventDetailPage() {
                 </span>
               </div>
             )}
+            <div className="flex items-center gap-2.5 text-sm font-semibold">
+              <Banknote className="h-4 w-4 text-primary shrink-0" />
+              {event.fee_type === "free" && (
+                <span className="text-green-600">{tr.fee_free}</span>
+              )}
+              {event.fee_type === "tba" && (
+                <span className="text-gray-400">{tr.fee_tba}</span>
+              )}
+              {event.fee_type === "paid" && (
+                <span className="text-gray-800">
+                  {event.fee_amount != null ? `¥${event.fee_amount.toLocaleString()}` : tr.fee_tba}
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Description */}
@@ -180,32 +197,81 @@ export default function EventDetailPage() {
         </div>
 
         {/* Register CTA */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <div>
-            <p className="font-bold text-gray-900">
-              {isRegistered
-                ? (lang === "ja" ? "参加申請済みです" : lang === "ko" ? "참가 신청 완료!" : "You're registered!")
-                : (lang === "ja" ? "このイベントに参加しますか？" : lang === "ko" ? "이 이벤트에 참가하시겠습니까?" : "Want to join this event?")}
-            </p>
-            {isRegistered && (
-              <p className="text-xs text-gray-400 mt-0.5">
-                {lang === "ja" ? "マイページで確認できます" : lang === "ko" ? "내 예약에서 확인할 수 있어요" : "Check My Reservations"}
-              </p>
-            )}
+        <div className={`rounded-2xl border-2 p-6 ${isRegistered ? "bg-green-50 border-green-200" : "bg-white border-primary/20"}`}>
+          {/* Header */}
+          <div className="flex items-center gap-2 mb-4">
+            {isRegistered
+              ? <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
+              : <AlertCircle className="h-5 w-5 text-primary shrink-0" />
+            }
+            <h2 className="font-extrabold text-gray-900 text-base">
+              {isRegistered ? tr.reg_cta_registered : tr.reg_cta_title}
+            </h2>
           </div>
-          <div className="flex gap-2 w-full sm:w-auto">
+
+          {/* Event summary */}
+          <div className="bg-white rounded-xl border border-gray-100 p-4 mb-4 space-y-2">
+            <p className="font-bold text-gray-900 text-sm leading-snug">{title}</p>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 mt-1">
+              <span className="flex items-center gap-1">
+                <Calendar className="h-3 w-3 text-primary" />
+                {dateStr}
+              </span>
+              <span className="flex items-center gap-1">
+                <Clock className="h-3 w-3 text-primary" />
+                {timeStr}
+              </span>
+              <span className="flex items-center gap-1 font-semibold">
+                <Banknote className="h-3 w-3 text-primary" />
+                {event.fee_type === "free"
+                  ? <span className="text-green-600">{tr.fee_free}</span>
+                  : event.fee_type === "tba"
+                    ? <span className="text-gray-400">{tr.fee_tba}</span>
+                    : <span className="text-gray-800">{event.fee_amount != null ? `¥${event.fee_amount.toLocaleString()}` : tr.fee_tba}</span>
+                }
+              </span>
+            </div>
+          </div>
+
+          {/* Status / note */}
+          {isRegistered ? (
+            <div className="mb-4">
+              <p className="text-xs text-gray-500 mb-1">
+                {lang === "ja" ? "申し込み状況" : lang === "ko" ? "신청 상태" : "Status"}
+              </p>
+              <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${
+                regStatus === "approved" ? "bg-green-100 text-green-700"
+                : regStatus === "rejected" ? "bg-red-100 text-red-600"
+                : "bg-yellow-100 text-yellow-700"
+              }`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${
+                  regStatus === "approved" ? "bg-green-500"
+                  : regStatus === "rejected" ? "bg-red-500"
+                  : "bg-yellow-500"
+                }`} />
+                {regStatus === "approved" ? tr.reg_status_approved
+                 : regStatus === "rejected" ? tr.reg_status_rejected
+                 : tr.reg_status_pending}
+              </span>
+            </div>
+          ) : (
+            <p className="text-xs text-gray-400 mb-4">{tr.reg_note}</p>
+          )}
+
+          {/* Buttons */}
+          <div className="flex flex-col sm:flex-row gap-2">
             {isRegistered ? (
               <>
                 <Link
                   href="/my/reservations"
-                  className="flex-1 sm:flex-none rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white text-center hover:bg-primary/90 transition"
+                  className="flex-1 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white text-center hover:bg-primary/90 transition"
                 >
-                  {lang === "ja" ? "予約を確認" : lang === "ko" ? "예약 확인" : "View Reservation"}
+                  {lang === "ja" ? "予約内容を確認する" : lang === "ko" ? "예약 내역 확인하기" : "View My Reservation"}
                 </Link>
                 <button
                   onClick={handleCancel}
                   disabled={cancelling}
-                  className="flex-1 sm:flex-none rounded-xl border border-red-300 px-5 py-2.5 text-sm font-semibold text-red-500 hover:bg-red-50 disabled:opacity-50 transition"
+                  className="flex-1 sm:flex-none rounded-xl border border-red-200 px-5 py-2.5 text-sm font-semibold text-red-400 hover:bg-red-50 disabled:opacity-50 transition"
                 >
                   {cancelling ? "..." : tr.reg_cancel_registration}
                 </button>
@@ -214,9 +280,9 @@ export default function EventDetailPage() {
               <button
                 onClick={handleRegister}
                 disabled={applying}
-                className="w-full sm:w-auto rounded-xl bg-primary px-8 py-2.5 text-sm font-bold text-white hover:bg-primary/90 disabled:opacity-60 transition"
+                className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-white hover:bg-primary/90 disabled:opacity-60 transition"
               >
-                {applying ? tr.reg_applying : tr.reg_apply}
+                {applying ? tr.reg_applying : `${tr.reg_apply} →`}
               </button>
             )}
           </div>

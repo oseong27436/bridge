@@ -9,7 +9,7 @@ import {
 import { useLanguage } from "@/context/language-context";
 import { translations } from "@/lib/i18n";
 
-type EditForm = { name: string; role: string; gender: string };
+type EditForm = { name: string; gender: string };
 
 export default function AdminUsersPage() {
   const { lang } = useLanguage();
@@ -26,8 +26,10 @@ export default function AdminUsersPage() {
 
   // Edit modal
   const [editUser, setEditUser] = useState<DbProfile | null>(null);
-  const [editForm, setEditForm] = useState<EditForm>({ name: "", role: "user", gender: "" });
+  const [editForm, setEditForm] = useState<EditForm>({ name: "", gender: "" });
   const [saving, setSaving] = useState(false);
+  const [resetMsg, setResetMsg] = useState<string | null>(null);
+  const [resetting, setResetting] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -46,7 +48,8 @@ export default function AdminUsersPage() {
 
   function openEdit(u: DbProfile) {
     setEditUser(u);
-    setEditForm({ name: u.name, role: u.role, gender: u.gender ?? "" });
+    setEditForm({ name: u.name, gender: u.gender ?? "" });
+    setResetMsg(null);
   }
 
   async function handleSave() {
@@ -54,12 +57,23 @@ export default function AdminUsersPage() {
     setSaving(true);
     await createClient().from("bridge_profiles").update({
       name: editForm.name,
-      role: editForm.role,
       gender: editForm.gender || null,
     }).eq("id", editUser.id);
     setSaving(false);
     setEditUser(null);
     load();
+  }
+
+  async function handleResetPassword() {
+    if (!editUser) return;
+    setResetting(true);
+    setResetMsg(null);
+    const { error } = await createClient().auth.resetPasswordForEmail(editUser.email);
+    setResetting(false);
+    setResetMsg(error
+      ? (lang === "ja" ? "送信に失敗しました" : lang === "en" ? "Failed to send" : "전송 실패")
+      : (lang === "ja" ? "リセットメールを送信しました" : lang === "en" ? "Reset email sent" : "비밀번호 초기화 이메일을 발송했습니다")
+    );
   }
 
   async function handleDelete(u: DbProfile) {
@@ -286,17 +300,6 @@ export default function AdminUsersPage() {
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">{tr.field_role}</label>
-                <select
-                  value={editForm.role}
-                  onChange={(e) => setEditForm((f) => ({ ...f, role: e.target.value }))}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary"
-                >
-                  <option value="user">{tr.role_user}</option>
-                  <option value="admin">{tr.role_admin}</option>
-                </select>
-              </div>
-              <div>
                 <label className="block text-xs font-semibold text-gray-600 mb-1">{tr.field_gender}</label>
                 <select
                   value={editForm.gender}
@@ -316,6 +319,22 @@ export default function AdminUsersPage() {
                   disabled
                   className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm bg-gray-50 text-gray-400"
                 />
+              </div>
+              <div className="pt-1">
+                <button
+                  onClick={handleResetPassword}
+                  disabled={resetting}
+                  className="w-full rounded-lg border border-orange-300 px-3 py-2 text-sm font-semibold text-orange-600 hover:bg-orange-50 disabled:opacity-60"
+                >
+                  {resetting
+                    ? (lang === "ja" ? "送信中..." : lang === "en" ? "Sending..." : "전송 중...")
+                    : (lang === "ja" ? "パスワードリセットメールを送信" : lang === "en" ? "Send Password Reset Email" : "비밀번호 초기화 이메일 발송")}
+                </button>
+                {resetMsg && (
+                  <p className={`mt-1.5 text-xs text-center ${resetMsg.includes("失敗") || resetMsg.includes("Failed") || resetMsg.includes("실패") ? "text-red-500" : "text-green-600"}`}>
+                    {resetMsg}
+                  </p>
+                )}
               </div>
             </div>
             <div className="flex gap-2 mt-5 justify-end">
