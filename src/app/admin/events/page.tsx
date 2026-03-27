@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
-import type { DbEvent } from "@/lib/db";
+import { getHosts, type DbEvent, type DbHost } from "@/lib/db";
 import ImageUpload from "@/components/admin/image-upload";
 import { useLanguage } from "@/context/language-context";
 import { translations } from "@/lib/i18n";
@@ -22,6 +22,7 @@ const EMPTY_FORM = {
   capacity: "",
   fee_type: "free",  // "free" | "paid" | "tba"
   fee_amount: "",
+  host_id: "",
 };
 
 type FormData = typeof EMPTY_FORM;
@@ -61,6 +62,7 @@ export default function AdminEventsPage() {
   const tr = translations[lang];
 
   const [events, setEvents] = useState<DbEvent[]>([]);
+  const [hosts, setHosts] = useState<DbHost[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -74,7 +76,7 @@ export default function AdminEventsPage() {
     setLoading(false);
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); getHosts().then(setHosts); }, []);
 
   function openNew() {
     setEditId(null);
@@ -101,6 +103,7 @@ export default function AdminEventsPage() {
       capacity: e.capacity?.toString() ?? "",
       fee_type: e.fee_type ?? "free",
       fee_amount: e.fee_amount?.toString() ?? "",
+      host_id: e.host_id ?? "",
     });
     setShowForm(true);
   }
@@ -129,6 +132,7 @@ export default function AdminEventsPage() {
       capacity: form.capacity ? parseInt(form.capacity) : null,
       fee_type: form.fee_type,
       fee_amount: form.fee_type === "paid" && form.fee_amount ? parseInt(form.fee_amount) : null,
+      host_id: form.host_id || null,
     };
 
     if (editId) {
@@ -164,6 +168,19 @@ export default function AdminEventsPage() {
           <div className="bg-white rounded-2xl w-full max-w-lg mx-4 p-6 shadow-xl">
             <h2 className="text-lg font-bold mb-4">{editId ? tr.admin_edit_event : tr.admin_new_event_title}</h2>
             <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">{tr.field_host}</label>
+                <select
+                  value={form.host_id}
+                  onChange={(e) => setForm((f) => ({ ...f, host_id: e.target.value }))}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary"
+                >
+                  <option value="">{lang === "ja" ? "選択してください" : lang === "en" ? "Select a host" : "호스트 선택"}</option>
+                  {hosts.map((h) => (
+                    <option key={h.id} value={h.id}>{h.name}</option>
+                  ))}
+                </select>
+              </div>
               <Field label={tr.field_title} name="title" form={form} setForm={setForm} />
               <Field label={tr.field_description} name="description" textarea form={form} setForm={setForm} />
               <div className="grid grid-cols-2 gap-2">

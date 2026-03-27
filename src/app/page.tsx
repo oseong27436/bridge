@@ -6,7 +6,8 @@ import { useLanguage } from "@/context/language-context";
 import { translations } from "@/lib/i18n";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
-import { getEvents, getHosts, getGallery, getReviews, getSettings, eventTitle, eventDesc, hostBio, type DbEvent, type DbHost, type DbGallery } from "@/lib/db";
+import { getEvents, getHosts, getGallery, getReviews, getSettings, eventTitle, eventDesc, hostBio, type DbEvent, type DbHost, type DbGallery, type DbReview } from "@/lib/db";
+import { Star } from "lucide-react";
 
 const LANG_FILTERS = ["日本語", "한국어", "English", "中文"];
 
@@ -44,15 +45,17 @@ export default function HomePage() {
   const [events, setEvents] = useState<DbEvent[]>([]);
   const [hosts, setHosts] = useState<DbHost[]>([]);
   const [gallery, setGallery] = useState<DbGallery[]>([]);
+  const [reviews, setReviews] = useState<DbReview[]>([]);
   const [siteImgs, setSiteImgs] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     Promise.all([getEvents(), getHosts(), getGallery(), getReviews(), getSettings()]).then(
-      ([ev, ho, ga, , cfg]) => {
+      ([ev, ho, ga, rv, cfg]) => {
         setEvents(ev);
         setHosts(ho);
         setGallery(ga);
+        setReviews(rv);
         setSiteImgs({
           hero:    cfg.hero_image    || FALLBACK_IMGS.hero,
           meetup:  cfg.meetup_image  || FALLBACK_IMGS.meetup,
@@ -277,16 +280,45 @@ export default function HomePage() {
         )}
 
         {/* ── REVIEWS ───────────────────────────────────────────────── */}
-        <section className="mx-auto max-w-6xl px-4 sm:px-6 py-12">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">{tr.latest_reviews}</h2>
-          <EmptyState
-            icon="💬"
-            message={lang === "ja" ? "まだレビューがありません" : lang === "ko" ? "아직 리뷰가 없어요" : "No reviews yet"}
-            sub={lang === "ja" ? "イベント参加後にレビューを書けます" : lang === "ko" ? "이벤트 참가 후 리뷰를 작성할 수 있어요" : "Write a review after attending an event"}
-            href="/events"
-            cta={tr.hero_cta}
-          />
-        </section>
+        {reviews.length > 0 && (
+          <section className="mx-auto max-w-6xl px-4 sm:px-6 py-12">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">{tr.latest_reviews}</h2>
+              <Link href="/reviews" className="text-sm font-semibold text-primary hover:underline">
+                {lang === "ja" ? "すべて見る" : lang === "en" ? "See all" : "전체 보기"} →
+              </Link>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {reviews.map((r) => {
+                const profile = r.profile as { name?: string; avatar_url?: string } | undefined;
+                const event = r.event as { title_ko?: string; title_ja?: string; title_en?: string } | undefined;
+                const eventName = event ? (lang === "ko" ? event.title_ko : lang === "en" ? event.title_en : event.title_ja) : null;
+                return (
+                  <div key={r.id} className="bg-white rounded-2xl border border-gray-100 p-4">
+                    <div className="flex items-center gap-2.5 mb-3">
+                      <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-sm font-bold text-gray-400 shrink-0 overflow-hidden">
+                        {profile?.avatar_url
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          ? <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
+                          : profile?.name?.charAt(0) ?? "?"}
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-800">{profile?.name ?? (lang === "ja" ? "匿名" : lang === "en" ? "Anonymous" : "익명")}</p>
+                        <div className="flex">
+                          {[1,2,3,4,5].map((s) => (
+                            <Star key={s} className={`h-3 w-3 fill-current ${s <= r.stars ? "text-yellow-400" : "text-gray-200"}`} />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    {eventName && <p className="text-xs text-primary font-medium mb-1">{eventName}</p>}
+                    {r.text && <p className="text-sm text-gray-500 leading-relaxed line-clamp-3">{r.text}</p>}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
         {/* ── GALLERY ───────────────────────────────────────────────── */}
         <section id="gallery" className="mx-auto max-w-6xl px-4 sm:px-6 pb-12">

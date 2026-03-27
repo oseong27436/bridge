@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { MapPin, Calendar, Clock, Users, ChevronLeft, Banknote, CheckCircle2, AlertCircle } from "lucide-react";
+import { MapPin, Calendar, Clock, Users, ChevronLeft, Banknote, CheckCircle2, AlertCircle, Star } from "lucide-react";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
-import { getEventById, eventTitle, eventDesc, eventLocation, type DbEvent } from "@/lib/db";
+import { getEventById, getEventReviews, eventTitle, eventDesc, eventLocation, type DbEvent, type DbReview } from "@/lib/db";
 import { useLanguage } from "@/context/language-context";
 import { translations } from "@/lib/i18n";
 import { createClient } from "@/lib/supabase";
@@ -27,6 +27,16 @@ export default function EventDetailPage() {
   const [applying, setApplying] = useState(false);
   const [cancelling, setCancelling] = useState(false);
 
+  // Reviews
+  const [reviews, setReviews] = useState<DbReview[]>([]);
+  const [hasReviewed, setHasReviewed] = useState(false);
+  const [eventStars, setEventStars] = useState(0);
+  const [eventText, setEventText] = useState("");
+  const [hostStars, setHostStars] = useState(0);
+  const [hostText, setHostText] = useState("");
+  const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewDone, setReviewDone] = useState(false);
+
   const localeStr = lang === "ja" ? "ja-JP" : lang === "ko" ? "ko-KR" : "en-US";
 
   useEffect(() => {
@@ -35,6 +45,7 @@ export default function EventDetailPage() {
       setEvent(data);
       setLoading(false);
     });
+    getEventReviews(id).then(setReviews);
 
     const supabase = createClient();
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -51,6 +62,14 @@ export default function EventDetailPage() {
         setIsRegistered(true);
         setRegistrationId(data.id);
         setRegStatus(data.status);
+        // Check if already reviewed
+        const { data: existing } = await supabase
+          .from("bridge_reviews")
+          .select("id")
+          .eq("event_id", id)
+          .eq("user_id", session.user.id)
+          .maybeSingle();
+        if (existing) setHasReviewed(true);
       }
     });
   }, [id, router]);
@@ -78,6 +97,47 @@ export default function EventDetailPage() {
     setRegistrationId(null);
     setRegStatus(null);
     setCancelling(false);
+  }
+
+  async function handleSubmitReview() {
+    if (!userId || !event || eventStars === 0 || hostStars === 0) return;
+    setSubmittingReview(true);
+    const supabase = createClient();
+    await supabase.from("bridge_reviews").insert({
+      event_id: id, user_id: userId, stars: eventStars, text: eventText || null,
+    });
+    if (event.host_id) {
+      await supabase.from("bridge_host_reviews").insert({
+        host_id: event.host_id, user_id: userId, event_id: id, stars: hostStars, text: hostText || null,
+      });
+      // Update host stars/review_count
+      const { data: hostReviews } = await supabase
+        .from("bridge_host_reviews").select("stars").eq("host_id", event.host_id);
+      if (hostReviews?.length) {
+        const avg = hostReviews.reduce((s: number, r: { stars: number }) => s + r.stars, 0) / hostReviews.length;
+        await supabase.from("bridge_hosts").update({
+          stars: Math.round(avg * 10) / 10,
+          review_count: hostReviews.length,
+        }).eq("id", event.host_id);
+      }
+    }
+    setHasReviewed(true);
+    setReviewDone(true);
+    setSubmittingReview(false);
+    getEventReviews(id).then(setReviews);
+  }
+
+  function StarPicker({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+    return (
+      <div className="flex gap-1">
+        {[1,2,3,4,5].map((s) => (
+          <button key={s} type="button" onClick={() => onChange(s)}
+            className={`transition-colors ${s <= value ? "text-yellow-400" : "text-gray-300"}`}>
+            <Star className="h-6 w-6 fill-current" />
+          </button>
+        ))}
+      </div>
+    );
   }
 
   if (loading) {
@@ -287,6 +347,89 @@ export default function EventDetailPage() {
             )}
           </div>
         </div>
+        {/* Review Form — approved users who haven't reviewed yet */}
+        {regStatus === "approved" && !hasReviewed && (
+          <div className="mt-4 bg-white rounded-2xl border border-gray-200 p-6">
+            <h3 className="font-extrabold text-gray-900 mb-4">{tr.review_write}</h3>
+            {reviewDone ? (
+              <p className="text-green-600 font-semibold text-sm">{tr.review_submitted}</p>
+            ) : (
+              <div className="space-y-5">
+                {/* Event review */}
+                <div>
+                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">{tr.review_event_title}</p>
+                  <StarPicker value={eventStars} onChange={setEventStars} />
+                  <textarea
+                    rows={2}
+                    value={eventText}
+                    onChange={(e) => setEventText(e.target.value)}
+                    placeholder={tr.review_placeholder}
+                    className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 resize-none"
+                  />
+                </div>
+                {/* Host review */}
+                {event.host_id && (
+                  <div>
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">{tr.review_host_title}</p>
+                    <StarPicker value={hostStars} onChange={setHostStars} />
+                    <textarea
+                      rows={2}
+                      value={hostText}
+                      onChange={(e) => setHostText(e.target.value)}
+                      placeholder={tr.review_placeholder}
+                      className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 resize-none"
+                    />
+                  </div>
+                )}
+                <button
+                  onClick={handleSubmitReview}
+                  disabled={submittingReview || eventStars === 0 || (!!event.host_id && hostStars === 0)}
+                  className="w-full rounded-xl bg-primary py-2.5 text-sm font-bold text-white hover:bg-primary/90 disabled:opacity-50 transition"
+                >
+                  {submittingReview ? "..." : tr.review_submit}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+        {hasReviewed && !reviewDone && (
+          <p className="mt-3 text-center text-xs text-gray-400">{tr.review_already}</p>
+        )}
+
+        {/* Reviews list */}
+        {reviews.length > 0 && (
+          <div className="mt-4 bg-white rounded-2xl border border-gray-200 p-6">
+            <h3 className="font-extrabold text-gray-900 mb-4">{tr.review_list_title} ({reviews.length})</h3>
+            <div className="space-y-4">
+              {reviews.map((r) => (
+                <div key={r.id} className="flex gap-3">
+                  <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-500 shrink-0 overflow-hidden">
+                    {(r.profile as { name?: string; avatar_url?: string } | undefined)?.avatar_url
+                      ? <img src={(r.profile as { name?: string; avatar_url?: string }).avatar_url!} alt="" className="w-full h-full object-cover" />
+                      : (r.profile as { name?: string; avatar_url?: string } | undefined)?.name?.charAt(0) ?? "?"
+                    }
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-gray-700">
+                        {(r.profile as { name?: string } | undefined)?.name ?? lang === "ja" ? "匿名" : lang === "en" ? "Anonymous" : "익명"}
+                      </span>
+                      <div className="flex">
+                        {[1,2,3,4,5].map((s) => (
+                          <Star key={s} className={`h-3 w-3 fill-current ${s <= r.stars ? "text-yellow-400" : "text-gray-200"}`} />
+                        ))}
+                      </div>
+                    </div>
+                    {r.text && <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{r.text}</p>}
+                    <p className="text-[10px] text-gray-300 mt-0.5">
+                      {new Date(r.created_at).toLocaleDateString(localeStr)}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </main>
       <Footer />
     </div>

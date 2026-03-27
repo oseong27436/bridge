@@ -21,8 +21,22 @@ export interface DbEvent {
   capacity: number | null;
   fee_type: "free" | "paid" | "tba";
   fee_amount: number | null;
+  host_id: string | null;
   created_by: string | null;
   created_at: string;
+}
+
+export interface DbHostReview {
+  id: string;
+  host_id: string;
+  user_id: string;
+  event_id: string | null;
+  stars: number;
+  text: string | null;
+  featured: boolean;
+  created_at: string;
+  host?: DbHost;
+  profile?: DbProfile;
 }
 
 export interface DbHost {
@@ -76,8 +90,11 @@ export interface DbReview {
   event_id: string;
   user_id: string;
   stars: number;
-  text: string;
+  text: string | null;
+  featured: boolean;
   created_at: string;
+  event?: DbEvent;
+  profile?: DbProfile;
 }
 
 export async function getEvents(): Promise<DbEvent[]> {
@@ -176,9 +193,38 @@ export async function getReviews(): Promise<DbReview[]> {
   const supabase = createClient();
   const { data } = await supabase
     .from("bridge_reviews")
-    .select("*")
+    .select("*, event:bridge_events(title_ko,title_ja,title_en), profile:bridge_profiles(name,avatar_url)")
+    .eq("featured", true)
     .order("created_at", { ascending: false })
     .limit(6);
+  return data ?? [];
+}
+
+export async function getAllReviews(): Promise<DbReview[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("bridge_reviews")
+    .select("*, event:bridge_events(title_ko,title_ja,title_en), profile:bridge_profiles(name,avatar_url)")
+    .order("created_at", { ascending: false });
+  return data ?? [];
+}
+
+export async function getEventReviews(eventId: string): Promise<DbReview[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("bridge_reviews")
+    .select("*, profile:bridge_profiles(name,avatar_url)")
+    .eq("event_id", eventId)
+    .order("created_at", { ascending: false });
+  return data ?? [];
+}
+
+export async function getAllHostReviews(): Promise<DbHostReview[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("bridge_host_reviews")
+    .select("*, host:bridge_hosts(name,avatar_url), profile:bridge_profiles(name,avatar_url)")
+    .order("created_at", { ascending: false });
   return data ?? [];
 }
 

@@ -73,6 +73,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             { href: "/admin/events", label: tr.admin_events },
             { href: "/admin/hosts", label: tr.admin_hosts },
             { href: "/admin/gallery", label: tr.admin_gallery },
+            { href: "/admin/reviews", label: tr.admin_reviews },
             { href: "/admin/users", label: tr.admin_users },
             { href: "/admin/settings", label: tr.admin_settings },
           ].map((item) => (
