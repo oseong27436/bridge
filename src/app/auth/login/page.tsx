@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Header from "@/components/layout/header";
@@ -8,6 +8,31 @@ import Footer from "@/components/layout/footer";
 import { useLanguage } from "@/context/language-context";
 import { translations } from "@/lib/i18n";
 import { createClient } from "@/lib/supabase";
+
+function detectInAppBrowser(): "kakao" | "instagram" | "line" | "facebook" | null {
+  if (typeof navigator === "undefined") return null;
+  const ua = navigator.userAgent;
+  if (/KAKAOTALK/i.test(ua)) return "kakao";
+  if (/Instagram/i.test(ua)) return "instagram";
+  if (/\bLine\b/i.test(ua)) return "line";
+  if (/FBAN|FBAV/i.test(ua)) return "facebook";
+  return null;
+}
+
+function openInExternalBrowser() {
+  const url = window.location.href;
+  const ua = navigator.userAgent;
+  const isAndroid = /Android/i.test(ua);
+
+  if (isAndroid) {
+    // Android: intent scheme으로 Chrome 강제 실행
+    const intentUrl = `intent://${window.location.host}${window.location.pathname}${window.location.search}#Intent;scheme=https;package=com.android.chrome;end`;
+    window.location.href = intentUrl;
+  } else {
+    // iOS / 기타: 클립보드 복사 후 안내
+    navigator.clipboard?.writeText(url).catch(() => {});
+  }
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -18,6 +43,24 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [iab, setIab] = useState<"kakao" | "instagram" | "line" | "facebook" | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    setIab(detectInAppBrowser());
+  }, []);
+
+  function handleOpenExternal() {
+    const ua = navigator.userAgent;
+    const isAndroid = /Android/i.test(ua);
+    if (isAndroid) {
+      openInExternalBrowser();
+    } else {
+      navigator.clipboard?.writeText(window.location.href).catch(() => {});
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  }
 
   async function handleGoogleLogin() {
     const supabase = createClient();
@@ -59,11 +102,44 @@ export default function LoginPage() {
               <p className="mt-1 text-sm text-gray-500">{tr.login_subtitle}</p>
             </div>
 
+            {/* In-app browser warning */}
+            {iab && (
+              <div className="mb-5 rounded-xl bg-amber-50 border border-amber-200 p-4">
+                <p className="text-sm font-semibold text-amber-800 mb-1">
+                  {lang === "ja"
+                    ? "外部ブラウザで開いてください"
+                    : lang === "ko"
+                    ? "외부 브라우저에서 열어주세요"
+                    : "Please open in a browser"}
+                </p>
+                <p className="text-xs text-amber-700 mb-3">
+                  {lang === "ja"
+                    ? "アプリ内ブラウザではGoogleログインが使えません。ChromeまたはSafariで開いてください。"
+                    : lang === "ko"
+                    ? "카카오톡/인스타 내 브라우저에서는 Google 로그인이 차단됩니다. Chrome 또는 Safari로 열어주세요."
+                    : "Google login is blocked in in-app browsers. Please open in Chrome or Safari."}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleOpenExternal}
+                  className="w-full rounded-lg bg-amber-500 py-2 text-sm font-bold text-white hover:bg-amber-600 transition-colors"
+                >
+                  {copied
+                    ? lang === "ja" ? "コピーしました！Safariで貼り付け" : lang === "ko" ? "복사됨! Safari에 붙여넣기" : "Copied! Paste in Safari"
+                    : lang === "ja" ? "外部ブラウザで開く" : lang === "ko" ? "외부 브라우저로 열기" : "Open in browser"}
+                </button>
+              </div>
+            )}
+
             {/* Google SSO */}
             <button
               type="button"
-              onClick={handleGoogleLogin}
-              className="w-full flex items-center justify-center gap-3 rounded-xl border border-gray-300 bg-white py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors mb-5"
+              onClick={iab ? handleOpenExternal : handleGoogleLogin}
+              className={`w-full flex items-center justify-center gap-3 rounded-xl border py-3 text-sm font-semibold transition-colors mb-5 ${
+                iab
+                  ? "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
+                  : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+              }`}
             >
               <svg width="18" height="18" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z" fill="#FFC107"/>
