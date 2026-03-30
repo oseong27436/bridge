@@ -78,12 +78,19 @@ export default function EventDetailPage() {
     if (!userId) { router.push("/auth/login"); return; }
     setApplying(true);
     const supabase = createClient();
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("bridge_registrations")
-      .insert({ event_id: id, user_id: userId, status: "pending" })
+      .upsert(
+        { event_id: id, user_id: userId, status: "pending" },
+        { onConflict: "event_id,user_id" }
+      )
       .select("id")
       .single();
-    if (data) { setRegistrationId(data.id); setIsRegistered(true); setRegStatus("pending"); }
+    if (data && !error) {
+      setRegistrationId(data.id);
+      setIsRegistered(true);
+      setRegStatus("pending");
+    }
     setApplying(false);
   }
 
