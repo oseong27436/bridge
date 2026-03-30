@@ -219,6 +219,23 @@ export async function getEventReviews(eventId: string): Promise<DbReview[]> {
   return data ?? [];
 }
 
+export interface DbEventImage {
+  id: string;
+  event_id: string;
+  image_url: string;
+  sort_order: number;
+}
+
+export async function getEventImages(eventId: string): Promise<DbEventImage[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("bridge_event_images")
+    .select("*")
+    .eq("event_id", eventId)
+    .order("sort_order", { ascending: true });
+  return data ?? [];
+}
+
 export async function getAllHostReviews(): Promise<DbHostReview[]> {
   const supabase = createClient();
   const { data } = await supabase

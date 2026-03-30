@@ -6,7 +6,7 @@ import Link from "next/link";
 import { MapPin, Calendar, Clock, Users, ChevronLeft, Banknote, CheckCircle2, AlertCircle, Star } from "lucide-react";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
-import { getEventById, getEventReviews, eventTitle, eventDesc, eventLocation, type DbEvent, type DbReview } from "@/lib/db";
+import { getEventById, getEventImages, getEventReviews, eventTitle, eventDesc, eventLocation, type DbEvent, type DbEventImage, type DbReview } from "@/lib/db";
 import { useLanguage } from "@/context/language-context";
 import { translations } from "@/lib/i18n";
 import { createClient } from "@/lib/supabase";
@@ -27,6 +27,9 @@ export default function EventDetailPage() {
   const [applying, setApplying] = useState(false);
   const [cancelling, setCancelling] = useState(false);
 
+  const [eventImages, setEventImages] = useState<DbEventImage[]>([]);
+  const [lightboxImg, setLightboxImg] = useState<string | null>(null);
+
   // Reviews
   const [reviews, setReviews] = useState<DbReview[]>([]);
   const [hasReviewed, setHasReviewed] = useState(false);
@@ -46,6 +49,7 @@ export default function EventDetailPage() {
       setLoading(false);
     });
     getEventReviews(id).then(setReviews);
+    getEventImages(id).then(setEventImages);
 
     const supabase = createClient();
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -189,10 +193,30 @@ export default function EventDetailPage() {
         </Link>
 
         {/* Hero image */}
-        <div className="w-full aspect-video rounded-2xl overflow-hidden bg-gray-200 mb-6">
+        <div className="w-full aspect-video rounded-2xl overflow-hidden bg-gray-200 mb-3 cursor-pointer" onClick={() => setLightboxImg(event.image_url)}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={event.image_url} alt={title} className="w-full h-full object-cover" />
         </div>
+
+        {/* Additional images */}
+        {eventImages.filter((img) => img.image_url !== event.image_url).length > 0 && (
+          <div className="flex gap-2 mb-6 overflow-x-auto pb-1">
+            {eventImages.filter((img) => img.image_url !== event.image_url).map((img) => (
+              <div key={img.id} className="shrink-0 w-24 h-24 rounded-xl overflow-hidden bg-gray-100 cursor-pointer hover:opacity-80 transition-opacity" onClick={() => setLightboxImg(img.image_url)}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={img.image_url} alt="" className="w-full h-full object-cover" />
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Lightbox */}
+        {lightboxImg && (
+          <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4" onClick={() => setLightboxImg(null)}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={lightboxImg} alt="" className="max-w-full max-h-full rounded-xl object-contain" />
+          </div>
+        )}
 
         <div className="bg-white rounded-2xl border border-gray-200 p-6 sm:p-8 mb-4">
           {/* Category badge */}

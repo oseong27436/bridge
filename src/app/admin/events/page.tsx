@@ -1,12 +1,28 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase";
-import { getHosts, type DbEvent, type DbHost } from "@/lib/db";
-import ImageUpload from "@/components/admin/image-upload";
+import { getHosts, getEventImages, type DbEvent, type DbHost } from "@/lib/db";
 import { useLanguage } from "@/context/language-context";
 import { translations } from "@/lib/i18n";
 import { ChevronDown, ChevronUp, Users, Banknote, MapPin, Calendar, X } from "lucide-react";
+
+async function compressImage(file: File, maxWidth: number, quality: number): Promise<Blob> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxWidth / img.width);
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob((blob) => resolve(blob!), "image/jpeg", quality);
+    };
+    img.src = url;
+  });
+}
 
 const EMPTY_FORM = {
   title: "",
@@ -100,7 +116,12 @@ export default function AdminEventsPage() {
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [form, setForm] = useState<FormData>(EMPTY_FORM);
+  const [images, setImages] = useState<string[]>([]); // all uploaded image URLs
   const [saving, setSaving] = useState(false);
+  const [uploadingExtra, setUploadingExtra] = useState(false);
+  const extraInputRef = useRef<HTMLInputElement>(null);
+
+  const supabaseClient = createClient();
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [registrations, setRegistrations] = useState<Record<string, Registration[]>>({});
@@ -186,9 +207,9 @@ export default function AdminEventsPage() {
     setApprovingId(null);
   }
 
-  function openNew() { setEditId(null); setForm(EMPTY_FORM); setShowForm(true); }
+  function openNew() { setEditId(null); setForm(EMPTY_FORM); setImages([]); setShowForm(true); }
 
-  function openEdit(e: DbEvent) {
+  async function openEdit(e: DbEvent) {
     setEditId(e.id);
     const loc = e.location_ko || e.location_ja || e.location_en;
     const locType = loc === "__tba__" ? "tba" : e.location_url && !loc ? "link" : "address";
@@ -209,7 +230,44 @@ export default function AdminEventsPage() {
       fee_amount: e.fee_amount?.toString() ?? "",
       host_id: e.host_id ?? "",
     });
+    const imgs = await getEventImages(e.id);
+    const urls = imgs.map((i) => i.image_url);
+    // merge with main image_url if not already in list
+    const merged = e.image_url && !urls.includes(e.image_url) ? [e.image_url, ...urls] : urls;
+    setImages(merged.length ? merged : e.image_url ? [e.image_url] : []);
     setShowForm(true);
+  }
+
+  async function handleUploadExtra(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingExtra(true);
+    const blob = await compressImage(file, 1600, 0.88);
+    const path = `events/${Date.now()}.jpg`;
+    const { error } = await supabaseClient.storage.from("bridge-images").upload(path, blob, { upsert: true, contentType: "image/jpeg" });
+    if (!error) {
+      const { data } = supabaseClient.storage.from("bridge-images").getPublicUrl(path);
+      const url = data.publicUrl;
+      setImages((prev) => {
+        const next = [...prev, url];
+        if (next.length === 1) setForm((f) => ({ ...f, image_url: url }));
+        return next;
+      });
+    }
+    setUploadingExtra(false);
+    if (extraInputRef.current) extraInputRef.current.value = "";
+  }
+
+  function removeImage(url: string) {
+    setImages((prev) => {
+      const next = prev.filter((u) => u !== url);
+      // if removed was main, set next main
+      setForm((f) => ({
+        ...f,
+        image_url: f.image_url === url ? (next[0] ?? "") : f.image_url,
+      }));
+      return next;
+    });
   }
 
   async function handleSave() {
@@ -229,8 +287,25 @@ export default function AdminEventsPage() {
       fee_amount: form.fee_type === "paid" && form.fee_amount ? parseInt(form.fee_amount) : null,
       host_id: form.host_id || null,
     };
-    if (editId) await supabase.from("bridge_events").update(payload).eq("id", editId);
-    else await supabase.from("bridge_events").insert(payload);
+
+    let eventId = editId;
+    if (editId) {
+      await supabase.from("bridge_events").update(payload).eq("id", editId);
+    } else {
+      const { data: inserted } = await supabase.from("bridge_events").insert(payload).select("id").single();
+      eventId = inserted?.id ?? null;
+    }
+
+    // sync bridge_event_images
+    if (eventId) {
+      await supabase.from("bridge_event_images").delete().eq("event_id", eventId);
+      if (images.length > 0) {
+        await supabase.from("bridge_event_images").insert(
+          images.map((url, i) => ({ event_id: eventId, image_url: url, sort_order: i }))
+        );
+      }
+    }
+
     setSaving(false);
     setShowForm(false);
     load();
@@ -335,7 +410,47 @@ export default function AdminEventsPage() {
               )}
 
               <SectionLabel>{lang === "ja" ? "画像" : lang === "ko" ? "이미지" : "Image"}</SectionLabel>
-              <ImageUpload value={form.image_url} onChange={(url) => setForm((f) => ({ ...f, image_url: url }))} folder="events" />
+              {/* Multi-image upload */}
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                  {tr.field_image}
+                  <span className="ml-1 text-gray-400 font-normal">(첫 번째가 대표 사진)</span>
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {images.map((url, i) => (
+                    <div key={url} className="relative w-20 h-20 rounded-xl overflow-hidden border-2 cursor-pointer"
+                      style={{ borderColor: form.image_url === url ? "var(--color-primary, #f97316)" : "#e5e7eb" }}
+                      onClick={() => setForm((f) => ({ ...f, image_url: url }))}
+                      title="클릭해서 대표 사진 설정"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={url} alt="" className="w-full h-full object-cover" />
+                      {form.image_url === url && (
+                        <div className="absolute top-0.5 left-0.5 bg-primary text-white text-[10px] font-bold px-1 rounded">대표</div>
+                      )}
+                      <button type="button"
+                        onClick={(ev) => { ev.stopPropagation(); removeImage(url); }}
+                        className="absolute top-0.5 right-0.5 bg-black/60 text-white rounded-full w-4 h-4 flex items-center justify-center text-[10px] hover:bg-red-500"
+                      >✕</button>
+                      {i > 0 && (
+                        <button type="button"
+                          onClick={(ev) => { ev.stopPropagation(); setImages((prev) => { const a = [...prev]; [a[i-1], a[i]] = [a[i], a[i-1]]; return a; }); }}
+                          className="absolute bottom-0.5 left-0.5 bg-black/60 text-white rounded text-[10px] px-1 hover:bg-gray-700"
+                        >←</button>
+                      )}
+                    </div>
+                  ))}
+                  <button type="button"
+                    onClick={() => extraInputRef.current?.click()}
+                    className="w-20 h-20 rounded-xl border-2 border-dashed border-gray-200 hover:border-primary flex flex-col items-center justify-center text-gray-400 hover:text-primary transition-colors text-xs gap-1"
+                  >
+                    {uploadingExtra
+                      ? <div className="animate-spin h-4 w-4 rounded-full border-2 border-primary border-t-transparent" />
+                      : <><span className="text-2xl leading-none">+</span><span>사진 추가</span></>}
+                  </button>
+                  <input ref={extraInputRef} type="file" accept="image/*" className="hidden" onChange={handleUploadExtra} />
+                </div>
+              </div>
 
               <SectionLabel>{lang === "ja" ? "定員・参加費" : lang === "ko" ? "정원 & 참가비" : "Capacity & Fee"}</SectionLabel>
               <div className="grid grid-cols-2 gap-3">
