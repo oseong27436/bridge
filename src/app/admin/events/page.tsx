@@ -117,7 +117,7 @@ export default function AdminEventsPage() {
       .eq("event_id", eventId)
       .neq("status", "cancelled")
       .order("created_at", { ascending: true });
-    setRegistrations((prev) => ({ ...prev, [eventId]: (data ?? []) as Registration[] }));
+    setRegistrations((prev) => ({ ...prev, [eventId]: (data ?? []) as unknown as Registration[] }));
   }
 
   function toggleExpand(eventId: string) {
