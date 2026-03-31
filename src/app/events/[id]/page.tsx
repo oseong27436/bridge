@@ -103,6 +103,23 @@ export default function EventDetailPage() {
       setRegistrationId(data.id);
       setIsRegistered(true);
       setRegStatus("pending");
+      // 신청 완료 알림 발송
+      const { data: profileData } = await supabase
+        .from("bridge_profiles")
+        .select("line_user_id, email, lang")
+        .eq("id", userId)
+        .maybeSingle();
+      fetch("/api/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lineUserId: profileData?.line_user_id ?? null,
+          email: profileData?.email ?? null,
+          action: "applied",
+          eventTitle: eventTitle(event!, lang),
+          lang: profileData?.lang ?? lang,
+        }),
+      });
       if (!lineUserId) setShowLinePopup(true);
     }
     setApplying(false);

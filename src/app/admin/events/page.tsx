@@ -41,6 +41,7 @@ const EMPTY_FORM = {
   fee_amount: "",
   host_id: "",
   open_chat_url: "",
+  open_chat_qr_url: "",
 };
 
 type FormData = typeof EMPTY_FORM;
@@ -121,6 +122,8 @@ export default function AdminEventsPage() {
   const [saving, setSaving] = useState(false);
   const [uploadingExtra, setUploadingExtra] = useState(false);
   const extraInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingQr, setUploadingQr] = useState(false);
+  const qrInputRef = useRef<HTMLInputElement>(null);
 
   const supabaseClient = createClient();
 
@@ -253,6 +256,7 @@ export default function AdminEventsPage() {
       fee_amount: e.fee_amount?.toString() ?? "",
       host_id: e.host_id ?? "",
       open_chat_url: (e as DbEvent & { open_chat_url?: string }).open_chat_url ?? "",
+      open_chat_qr_url: (e as DbEvent & { open_chat_qr_url?: string }).open_chat_qr_url ?? "",
     });
     const imgs = await getEventImages(e.id);
     const urls = imgs.map((i) => i.image_url);
@@ -280,6 +284,21 @@ export default function AdminEventsPage() {
     }
     setUploadingExtra(false);
     if (extraInputRef.current) extraInputRef.current.value = "";
+  }
+
+  async function handleUploadQr(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingQr(true);
+    const blob = await compressImage(file, 800, 0.9);
+    const path = `events/qr_${Date.now()}.jpg`;
+    const { error } = await supabaseClient.storage.from("bridge-images").upload(path, blob, { upsert: true, contentType: "image/jpeg" });
+    if (!error) {
+      const { data } = supabaseClient.storage.from("bridge-images").getPublicUrl(path);
+      setForm((f) => ({ ...f, open_chat_qr_url: data.publicUrl }));
+    }
+    setUploadingQr(false);
+    if (qrInputRef.current) qrInputRef.current.value = "";
   }
 
   function removeImage(url: string) {
@@ -311,6 +330,7 @@ export default function AdminEventsPage() {
       fee_amount: form.fee_type === "paid" && form.fee_amount ? parseInt(form.fee_amount) : null,
       host_id: form.host_id || null,
       open_chat_url: form.open_chat_url || null,
+      open_chat_qr_url: form.open_chat_qr_url || null,
     };
 
     let eventId = editId;
@@ -509,6 +529,32 @@ export default function AdminEventsPage() {
                 form={form}
                 setForm={setForm}
               />
+              {/* QR 이미지 업로드 */}
+              <div className="mt-3">
+                <p className="text-xs font-semibold text-gray-600 mb-2">
+                  {lang === "ja" ? "QRコード画像" : lang === "ko" ? "QR 코드 이미지" : "QR Code Image"}
+                </p>
+                <div className="flex items-center gap-3">
+                  {form.open_chat_qr_url && (
+                    <div className="relative">
+                      <img src={form.open_chat_qr_url} alt="QR" className="w-20 h-20 rounded-lg border border-gray-200 object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setForm((f) => ({ ...f, open_chat_qr_url: "" }))}
+                        className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center"
+                      >×</button>
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => qrInputRef.current?.click()}
+                    className="rounded-xl border-2 border-dashed border-gray-300 px-4 py-3 text-xs font-semibold text-gray-400 hover:border-primary hover:text-primary transition-colors"
+                  >
+                    {uploadingQr ? "..." : form.open_chat_qr_url ? (lang === "ko" ? "변경" : lang === "en" ? "Change" : "変更") : (lang === "ko" ? "+ QR 업로드" : lang === "en" ? "+ Upload QR" : "+ QR アップロード")}
+                  </button>
+                  <input ref={qrInputRef} type="file" accept="image/*" className="hidden" onChange={handleUploadQr} />
+                </div>
+              </div>
             </div>
 
             {/* Sticky footer buttons */}

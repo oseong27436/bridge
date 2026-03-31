@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 
-function buildMessage(action: 'approved' | 'rejected', eventTitle: string, lang: string, openChatUrl?: string | null): string {
-  const chatLine = openChatUrl
+function buildMessage(action: 'applied' | 'approved' | 'rejected', eventTitle: string, lang: string, openChatUrl?: string | null): string {
+  const chatLine = openChatUrl && action === 'approved'
     ? (lang === 'ko'
         ? `\n\n📢 오픈채팅 참가: ${openChatUrl}`
         : lang === 'en'
@@ -10,27 +10,28 @@ function buildMessage(action: 'approved' | 'rejected', eventTitle: string, lang:
     : ''
 
   if (lang === 'ko') {
-    return action === 'approved'
-      ? `🎉 이벤트 「${eventTitle}」 참가가 승인되었습니다! 당일 뵙겠습니다.${chatLine}`
-      : `「${eventTitle}」 참가 신청은 이번에 승인되지 않았습니다. 다음에 또 신청해주세요.`
+    if (action === 'applied') return `📋 이벤트 「${eventTitle}」 참가 신청이 접수되었습니다. 승인을 기다려주세요.`
+    if (action === 'approved') return `🎉 이벤트 「${eventTitle}」 참가가 승인되었습니다! 당일 뵙겠습니다.${chatLine}`
+    return `「${eventTitle}」 참가 신청은 이번에 승인되지 않았습니다. 다음에 또 신청해주세요.`
   }
   if (lang === 'en') {
-    return action === 'approved'
-      ? `🎉 Your registration for "${eventTitle}" has been approved! See you there!${chatLine}`
-      : `Your registration for "${eventTitle}" was not approved this time. Hope to see you at future events!`
+    if (action === 'applied') return `📋 Your registration for "${eventTitle}" has been received. Please wait for approval.`
+    if (action === 'approved') return `🎉 Your registration for "${eventTitle}" has been approved! See you there!${chatLine}`
+    return `Your registration for "${eventTitle}" was not approved this time. Hope to see you at future events!`
   }
-  return action === 'approved'
-    ? `🎉 イベント「${eventTitle}」への参加が承認されました！当日お会いできるのを楽しみにしています。${chatLine}`
-    : `「${eventTitle}」への参加申請は今回見送りとなりました。またのご参加をお待ちしています。`
+  // Default: Japanese
+  if (action === 'applied') return `📋 イベント「${eventTitle}」への参加申請を受け付けました。承認をお待ちください。`
+  if (action === 'approved') return `🎉 イベント「${eventTitle}」への参加が承認されました！当日お会いできるのを楽しみにしています。${chatLine}`
+  return `「${eventTitle}」への参加申請は今回見送りとなりました。またのご参加をお待ちしています。`
 }
 
 export async function POST(request: Request) {
   try {
     const { lineUserId, email, action, eventTitle, openChatUrl, lang = 'ja' } = await request.json()
+    const text = buildMessage(action, eventTitle, lang, openChatUrl)
 
     // LINE push notification
     if (lineUserId && process.env.LINE_MESSAGING_ACCESS_TOKEN) {
-      const text = buildMessage(action, eventTitle, lang, openChatUrl)
       const res = await fetch('https://api.line.me/v2/bot/message/push', {
         method: 'POST',
         headers: {
@@ -49,8 +50,11 @@ export async function POST(request: Request) {
 
     // Email notification via Resend (set RESEND_API_KEY in env to enable)
     if (!lineUserId && email && process.env.RESEND_API_KEY) {
-      const isApproved = action === 'approved'
-      const text = buildMessage(action, eventTitle, lang, openChatUrl)
+      const subjectMap: Record<string, string> = {
+        applied: 'イベント参加申請を受け付けました',
+        approved: 'イベント参加が承認されました',
+        rejected: 'イベント参加申請について',
+      }
       await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
@@ -60,7 +64,7 @@ export async function POST(request: Request) {
         body: JSON.stringify({
           from: 'Bridge Osaka <noreply@bridgeosaka.com>',
           to: [email],
-          subject: isApproved ? `イベント参加が承認されました` : `イベント参加申請について`,
+          subject: subjectMap[action] ?? subjectMap.applied,
           html: `<p>${text}</p>`,
         }),
       })
