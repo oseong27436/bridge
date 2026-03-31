@@ -48,7 +48,6 @@ function SignupContent() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [showLineFriendPopup, setShowLineFriendPopup] = useState(false);
   const [iab, setIab] = useState<"kakao" | "instagram" | "line" | "facebook" | null>(null);
 
   useEffect(() => { setIab(detectInAppBrowser()); }, []);
@@ -166,8 +165,7 @@ function SignupContent() {
     }
 
     if (lineUserId) {
-      setLoading(false);
-      setShowLineFriendPopup(true);
+      window.location.href = LINE_FRIEND_URL;
     } else {
       router.push("/");
       router.refresh();
@@ -195,37 +193,7 @@ function SignupContent() {
     <>
       <Header />
 
-      {/* LINE 친구추가 팝업 */}
-      {showLineFriendPopup && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 bg-black/50">
-          <div className="bg-white rounded-2xl shadow-xl p-7 w-full max-w-sm text-center">
-            <div className="w-14 h-14 mx-auto mb-4 rounded-full flex items-center justify-center" style={{ backgroundColor: "#06C755" }}>
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 2C6.48 2 2 6.03 2 11c0 3.45 2.01 6.47 5.03 8.22L6 22l3.17-1.7C10.03 20.73 11 21 12 21c5.52 0 10-4.03 10-9S17.52 2 12 2zm1 13H8v-1.5h5V15zm2-3H8v-1.5h7V12zm0-3H8V7.5h7V9z"/>
-              </svg>
-            </div>
-            <h2 className="text-lg font-bold text-gray-900 mb-2">{tr.line_add_friend_title}</h2>
-            <p className="text-sm text-gray-500 mb-6">{tr.line_add_friend_desc}</p>
-            <a
-              href={LINE_FRIEND_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block w-full rounded-xl py-3 text-sm font-bold text-white mb-3"
-              style={{ backgroundColor: "#06C755" }}
-            >
-              {tr.line_add_friend_btn}
-            </a>
-            <button
-              onClick={() => { router.push("/"); router.refresh(); }}
-              className="block w-full text-sm text-gray-400 hover:text-gray-600 transition-colors"
-            >
-              {tr.line_skip}
-            </button>
-          </div>
-        </div>
-      )}
-
-      <main className="flex-1 flex items-center justify-center px-4 py-16 bg-gray-50">
+<main className="flex-1 flex items-center justify-center px-4 py-16 bg-gray-50">
         <div className="w-full max-w-md">
           <div className="bg-white rounded-2xl border border-gray-200 p-8 shadow-sm">
             {/* Logo */}
