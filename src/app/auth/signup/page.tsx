@@ -126,11 +126,15 @@ function SignupContent() {
     const supabase = createClient();
     let userId: string;
 
+    let lineUserId: string | null = null;
     if (isSso) {
-      // Already authenticated via Google — just get current user
+      // Already authenticated via SSO — just get current user
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setError(tr.signup_error_generic); setLoading(false); return; }
       userId = user.id;
+      if (user.app_metadata?.provider === 'custom:line') {
+        lineUserId = user.user_metadata?.sub ?? null;
+      }
     } else {
       const { data: authData, error: authError } = await supabase.auth.signUp({ email, password });
       if (authError || !authData.user) {
@@ -149,6 +153,7 @@ function SignupContent() {
       native_lang: nativeLang || null,
       target_langs: targetLangs,
       lang,
+      ...(lineUserId ? { line_user_id: lineUserId } : {}),
     });
 
     if (profileError) {

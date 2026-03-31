@@ -29,6 +29,18 @@ export async function GET(request: Request) {
         .eq('id', user.id)
         .single()
 
+      // LINE 로그인 시 line_user_id 저장
+      const isLine = user.app_metadata?.provider === 'custom:line'
+      if (isLine && profile) {
+        const lineUserId = user.user_metadata?.sub
+        if (lineUserId) {
+          await supabase
+            .from('bridge_profiles')
+            .update({ line_user_id: lineUserId })
+            .eq('id', user.id)
+        }
+      }
+
       if (!profile) {
         return NextResponse.redirect(origin + '/auth/signup?sso=1')
       }
