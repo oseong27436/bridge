@@ -96,7 +96,7 @@ export default function LoginPage() {
               <svg width="20" height="20" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg">
                 <path d="M12 2C6.48 2 2 6.03 2 11c0 3.45 2.01 6.47 5.03 8.22L6 22l3.17-1.7C10.03 20.73 11 21 12 21c5.52 0 10-4.03 10-9S17.52 2 12 2zm1 13H8v-1.5h5V15zm2-3H8v-1.5h7V12zm0-3H8V7.5h7V9z"/>
               </svg>
-              LINEで続ける / LINE으로 계속하기
+              LINE
             </button>
 
             {/* Google SSO */}
@@ -111,7 +111,7 @@ export default function LoginPage() {
                 <path d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z" fill="#4CAF50"/>
                 <path d="M43.611 20.083H42V20H24v8h11.303a11.995 11.995 0 01-4.087 5.571l6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z" fill="#1976D2"/>
               </svg>
-              Google로 계속하기
+              GOOGLE
             </button>
 
             <div className="flex items-center gap-3 mb-5">
