@@ -49,7 +49,7 @@ type Registration = {
   user_id: string;
   status: string;
   created_at: string;
-  profile: { name: string; email: string; avatar_url: string | null } | null;
+  profile: { name: string; email: string; avatar_url: string | null; line_user_id: string | null; lang?: string } | null;
 };
 
 /* ── Reusable field components ── */
@@ -169,7 +169,7 @@ export default function AdminEventsPage() {
     const userIds = regsData.map((r) => r.user_id);
     const { data: profilesData } = await supabase
       .from("bridge_profiles")
-      .select("id, name, email, avatar_url")
+      .select("id, name, email, avatar_url, line_user_id, lang")
       .in("id", userIds);
 
     const profileMap = Object.fromEntries((profilesData ?? []).map((p) => [p.id, p]));
@@ -187,6 +187,24 @@ export default function AdminEventsPage() {
     loadRegistrations(eventId);
   }
 
+  async function sendNotification(regId: string, eventId: string, action: "approved" | "rejected") {
+    const reg = registrations[eventId]?.find((r) => r.id === regId);
+    const evt = events.find((e) => e.id === eventId);
+    if (!reg || !evt) return;
+    const eventTitle = evt.title_ja || evt.title_ko || evt.title_en || "";
+    await fetch("/api/notify", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        lineUserId: reg.profile?.line_user_id ?? null,
+        email: reg.profile?.email ?? null,
+        action,
+        eventTitle,
+        lang: reg.profile?.lang ?? "ja",
+      }),
+    });
+  }
+
   async function handleApprove(regId: string, eventId: string) {
     setApprovingId(regId);
     await createClient().from("bridge_registrations").update({ status: "approved" }).eq("id", regId);
@@ -194,6 +212,7 @@ export default function AdminEventsPage() {
       ...prev,
       [eventId]: prev[eventId].map((r) => r.id === regId ? { ...r, status: "approved" } : r),
     }));
+    await sendNotification(regId, eventId, "approved");
     setApprovingId(null);
   }
 
@@ -204,6 +223,7 @@ export default function AdminEventsPage() {
       ...prev,
       [eventId]: prev[eventId].map((r) => r.id === regId ? { ...r, status: "rejected" } : r),
     }));
+    await sendNotification(regId, eventId, "rejected");
     setApprovingId(null);
   }
 
