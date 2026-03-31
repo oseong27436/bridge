@@ -12,6 +12,8 @@ import { createClient } from "@/lib/supabase";
 import type { NativeLang, TargetLevel } from "@/lib/types";
 import { Camera } from "lucide-react";
 
+const LINE_FRIEND_URL = "https://line.me/R/ti/p/@194rkuvr";
+
 interface BridgeProfile {
   id: string;
   name: string;
@@ -21,6 +23,7 @@ interface BridgeProfile {
   target_lang?: NativeLang;
   target_level?: TargetLevel;
   avatar_url?: string | null;
+  line_user_id?: string | null;
 }
 
 const LANG_KEYS: Record<string, string> = {
@@ -330,9 +333,55 @@ export default function ProfilePage() {
                 </div>
               </div>
 
+              {/* LINE 연동 */}
+              <div className="mt-6 rounded-xl border border-gray-200 p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: "#06C755" }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M12 2C6.48 2 2 6.03 2 11c0 3.45 2.01 6.47 5.03 8.22L6 22l3.17-1.7C10.03 20.73 11 21 12 21c5.52 0 10-4.03 10-9S17.52 2 12 2zm1 13H8v-1.5h5V15zm2-3H8v-1.5h7V12zm0-3H8V7.5h7V9z"/>
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    {profile?.line_user_id ? (
+                      <>
+                        <p className="text-sm font-semibold text-green-600">{tr.line_connected}</p>
+                        <a
+                          href={LINE_FRIEND_URL}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-gray-400 hover:text-gray-600 underline transition-colors"
+                        >
+                          {tr.line_add_friend_btn}
+                        </a>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-sm font-semibold text-gray-700">{tr.line_connect}</p>
+                        <p className="text-xs text-gray-400">{tr.line_connect_desc}</p>
+                      </>
+                    )}
+                  </div>
+                  {!profile?.line_user_id && (
+                    <button
+                      onClick={async () => {
+                        const supabase = createClient();
+                        await supabase.auth.signInWithOAuth({
+                          provider: "custom:line" as never,
+                          options: { redirectTo: `${window.location.origin}/auth/callback` },
+                        });
+                      }}
+                      className="flex-shrink-0 rounded-lg px-3 py-1.5 text-xs font-bold text-white transition-opacity hover:opacity-90"
+                      style={{ backgroundColor: "#06C755" }}
+                    >
+                      LINE
+                    </button>
+                  )}
+                </div>
+              </div>
+
               <button
                 onClick={() => setEditMode(true)}
-                className="mt-6 w-full rounded-xl border border-gray-300 py-2.5 text-sm font-semibold hover:bg-gray-50 transition"
+                className="mt-4 w-full rounded-xl border border-gray-300 py-2.5 text-sm font-semibold hover:bg-gray-50 transition"
               >
                 {tr.profile_edit}
               </button>

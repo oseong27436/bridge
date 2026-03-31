@@ -116,6 +116,14 @@ export const translations = {
     profile_save: "保存",
     profile_saving: "保存中...",
 
+    line_add_friend_title: "LINEで通知を受け取ろう",
+    line_add_friend_desc: "イベント承認などの通知をLINEで受け取るには、公式アカウントを友達追加してください。",
+    line_add_friend_btn: "LINE友達追加",
+    line_skip: "後で",
+    line_connected: "LINE連携済み ✓",
+    line_connect: "LINE連携",
+    line_connect_desc: "LINEアカウントと連携するとイベント承認などの通知がLINEで届きます。",
+
     reg_apply: "参加申請",
     reg_applying: "申請中...",
     reg_applied: "申請済み",
@@ -338,6 +346,14 @@ export const translations = {
     profile_save: "저장",
     profile_saving: "저장 중...",
 
+    line_add_friend_title: "LINE으로 알림 받기",
+    line_add_friend_desc: "이벤트 승인 등의 알림을 LINE으로 받으려면 공식 계정을 친구 추가해주세요.",
+    line_add_friend_btn: "LINE 친구 추가하기",
+    line_skip: "나중에",
+    line_connected: "LINE 연동됨 ✓",
+    line_connect: "LINE 연동하기",
+    line_connect_desc: "LINE 계정을 연동하면 이벤트 승인 등의 알림을 LINE으로 받을 수 있습니다.",
+
     reg_apply: "참가 신청",
     reg_applying: "신청 중...",
     reg_applied: "신청 완료",
@@ -559,6 +575,14 @@ export const translations = {
     profile_edit: "Edit Profile",
     profile_save: "Save",
     profile_saving: "Saving...",
+
+    line_add_friend_title: "Get LINE Notifications",
+    line_add_friend_desc: "Add our official LINE account as a friend to receive event approval and other notifications.",
+    line_add_friend_btn: "Add on LINE",
+    line_skip: "Later",
+    line_connected: "LINE Connected ✓",
+    line_connect: "Connect LINE",
+    line_connect_desc: "Connect your LINE account to receive event approval and other notifications via LINE.",
 
     reg_apply: "Register",
     reg_applying: "Registering...",
