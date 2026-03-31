@@ -37,7 +37,9 @@ export default function LoginPage() {
 
   async function handleOAuthLogin(provider: "google" | "custom:line") {
     const supabase = createClient();
-    if (iab) {
+    // LINE OAuth works natively in any browser — always use direct redirect
+    // Google OAuth in in-app browsers needs window.open() workaround
+    if (iab && provider === "google") {
       const { data } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
