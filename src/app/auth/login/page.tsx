@@ -35,12 +35,11 @@ export default function LoginPage() {
     setIab(detectInAppBrowser());
   }, []);
 
-  async function handleGoogleLogin() {
+  async function handleOAuthLogin(provider: "google" | "custom:line") {
     const supabase = createClient();
     if (iab) {
-      // In-app browser: get OAuth URL and open in system browser via window.open
       const { data } = await supabase.auth.signInWithOAuth({
-        provider: "google",
+        provider,
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
           skipBrowserRedirect: true,
@@ -49,7 +48,7 @@ export default function LoginPage() {
       if (data?.url) window.open(data.url, "_blank");
     } else {
       await supabase.auth.signInWithOAuth({
-        provider: "google",
+        provider,
         options: { redirectTo: `${window.location.origin}/auth/callback` },
       });
     }
@@ -87,10 +86,23 @@ export default function LoginPage() {
               <p className="mt-1 text-sm text-gray-500">{tr.login_subtitle}</p>
             </div>
 
+            {/* LINE SSO */}
+            <button
+              type="button"
+              onClick={() => handleOAuthLogin("custom:line")}
+              className="w-full flex items-center justify-center gap-3 rounded-xl py-3 text-sm font-semibold text-white hover:opacity-90 transition-opacity mb-3"
+              style={{ backgroundColor: "#06C755" }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="white" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2C6.48 2 2 6.03 2 11c0 3.45 2.01 6.47 5.03 8.22L6 22l3.17-1.7C10.03 20.73 11 21 12 21c5.52 0 10-4.03 10-9S17.52 2 12 2zm1 13H8v-1.5h5V15zm2-3H8v-1.5h7V12zm0-3H8V7.5h7V9z"/>
+              </svg>
+              LINEで続ける / LINE으로 계속하기
+            </button>
+
             {/* Google SSO */}
             <button
               type="button"
-              onClick={handleGoogleLogin}
+              onClick={() => handleOAuthLogin("google")}
               className="w-full flex items-center justify-center gap-3 rounded-xl border border-gray-300 bg-white py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors mb-5"
             >
               <svg width="18" height="18" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
