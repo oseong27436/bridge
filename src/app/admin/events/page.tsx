@@ -40,6 +40,7 @@ const EMPTY_FORM = {
   fee_type: "free",
   fee_amount: "",
   host_id: "",
+  open_chat_url: "",
 };
 
 type FormData = typeof EMPTY_FORM;
@@ -192,6 +193,7 @@ export default function AdminEventsPage() {
     const evt = events.find((e) => e.id === eventId);
     if (!reg || !evt) return;
     const eventTitle = evt.title_ja || evt.title_ko || evt.title_en || "";
+    const openChatUrl = (evt as DbEvent & { open_chat_url?: string }).open_chat_url ?? null;
     await fetch("/api/notify", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -200,6 +202,7 @@ export default function AdminEventsPage() {
         email: reg.profile?.email ?? null,
         action,
         eventTitle,
+        openChatUrl,
         lang: reg.profile?.lang ?? "ja",
       }),
     });
@@ -249,6 +252,7 @@ export default function AdminEventsPage() {
       fee_type: e.fee_type ?? "free",
       fee_amount: e.fee_amount?.toString() ?? "",
       host_id: e.host_id ?? "",
+      open_chat_url: (e as DbEvent & { open_chat_url?: string }).open_chat_url ?? "",
     });
     const imgs = await getEventImages(e.id);
     const urls = imgs.map((i) => i.image_url);
@@ -306,6 +310,7 @@ export default function AdminEventsPage() {
       fee_type: form.fee_type,
       fee_amount: form.fee_type === "paid" && form.fee_amount ? parseInt(form.fee_amount) : null,
       host_id: form.host_id || null,
+      open_chat_url: form.open_chat_url || null,
     };
 
     let eventId = editId;
@@ -495,6 +500,15 @@ export default function AdminEventsPage() {
                   </div>
                 </div>
               )}
+
+              <SectionLabel>{lang === "ja" ? "LINE オープンチャット" : lang === "ko" ? "LINE 오픈채팅" : "LINE Open Chat"}</SectionLabel>
+              <Field
+                label={lang === "ja" ? "オープンチャットURL" : lang === "ko" ? "오픈채팅 URL" : "Open Chat URL"}
+                name="open_chat_url"
+                placeholder="https://line.me/ti/g2/..."
+                form={form}
+                setForm={setForm}
+              />
             </div>
 
             {/* Sticky footer buttons */}
