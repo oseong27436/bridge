@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { MapPin, Calendar, Clock, Users, ChevronLeft, Banknote, CheckCircle2, AlertCircle, Star } from "lucide-react";
+import { MapPin, Calendar, Clock, Users, ChevronLeft, Banknote, CheckCircle2, AlertCircle, Star, History } from "lucide-react";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import { getEventById, getEventImages, getEventReviews, eventTitle, eventDesc, eventLocation, type DbEvent, type DbEventImage, type DbReview } from "@/lib/db";
@@ -34,13 +34,6 @@ export default function EventDetailPage() {
 
   // Reviews
   const [reviews, setReviews] = useState<DbReview[]>([]);
-  const [hasReviewed, setHasReviewed] = useState(false);
-  const [eventStars, setEventStars] = useState(0);
-  const [eventText, setEventText] = useState("");
-  const [hostStars, setHostStars] = useState(0);
-  const [hostText, setHostText] = useState("");
-  const [submittingReview, setSubmittingReview] = useState(false);
-  const [reviewDone, setReviewDone] = useState(false);
 
   const localeStr = lang === "ja" ? "ja-JP" : lang === "ko" ? "ko-KR" : "en-US";
 
@@ -75,14 +68,6 @@ export default function EventDetailPage() {
         setIsRegistered(true);
         setRegistrationId(data.id);
         setRegStatus(data.status);
-        // Check if already reviewed
-        const { data: existing } = await supabase
-          .from("bridge_reviews")
-          .select("id")
-          .eq("event_id", id)
-          .eq("user_id", session.user.id)
-          .maybeSingle();
-        if (existing) setHasReviewed(true);
       }
     });
   }, [id, router]);
@@ -137,47 +122,6 @@ export default function EventDetailPage() {
     setCancelling(false);
   }
 
-  async function handleSubmitReview() {
-    if (!userId || !event || eventStars === 0 || hostStars === 0) return;
-    setSubmittingReview(true);
-    const supabase = createClient();
-    await supabase.from("bridge_reviews").insert({
-      event_id: id, user_id: userId, stars: eventStars, text: eventText || null,
-    });
-    if (event.host_id) {
-      await supabase.from("bridge_host_reviews").insert({
-        host_id: event.host_id, user_id: userId, event_id: id, stars: hostStars, text: hostText || null,
-      });
-      // Update host stars/review_count
-      const { data: hostReviews } = await supabase
-        .from("bridge_host_reviews").select("stars").eq("host_id", event.host_id);
-      if (hostReviews?.length) {
-        const avg = hostReviews.reduce((s: number, r: { stars: number }) => s + r.stars, 0) / hostReviews.length;
-        await supabase.from("bridge_hosts").update({
-          stars: Math.round(avg * 10) / 10,
-          review_count: hostReviews.length,
-        }).eq("id", event.host_id);
-      }
-    }
-    setHasReviewed(true);
-    setReviewDone(true);
-    setSubmittingReview(false);
-    getEventReviews(id).then(setReviews);
-  }
-
-  function StarPicker({ value, onChange }: { value: number; onChange: (v: number) => void }) {
-    return (
-      <div className="flex gap-1">
-        {[1,2,3,4,5].map((s) => (
-          <button key={s} type="button" onClick={() => onChange(s)}
-            className={`transition-colors ${s <= value ? "text-yellow-400" : "text-gray-300"}`}>
-            <Star className="h-6 w-6 fill-current" />
-          </button>
-        ))}
-      </div>
-    );
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col">
@@ -205,6 +149,7 @@ export default function EventDetailPage() {
   const timeStr = event.time_end
     ? `${event.time_start} 〜 ${event.time_end}`
     : `${event.time_start} 〜`;
+  const isPast = new Date(event.date + "T23:59:59") < new Date();
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
@@ -345,144 +290,110 @@ export default function EventDetailPage() {
           )}
         </div>
 
-        {/* Register CTA */}
-        <div className={`rounded-2xl border-2 p-6 ${isRegistered ? "bg-green-50 border-green-200" : "bg-white border-primary/20"}`}>
-          {/* Header */}
-          <div className="flex items-center gap-2 mb-4">
-            {isRegistered
-              ? <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
-              : <AlertCircle className="h-5 w-5 text-primary shrink-0" />
-            }
-            <h2 className="font-extrabold text-gray-900 text-base">
-              {isRegistered ? tr.reg_cta_registered : tr.reg_cta_title}
-            </h2>
-          </div>
-
-          {/* Event summary */}
-          <div className="bg-white rounded-xl border border-gray-100 p-4 mb-4 space-y-2">
-            <p className="font-bold text-gray-900 text-sm leading-snug">{title}</p>
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 mt-1">
-              <span className="flex items-center gap-1">
-                <Calendar className="h-3 w-3 text-primary" />
-                {dateStr}
-              </span>
-              <span className="flex items-center gap-1">
-                <Clock className="h-3 w-3 text-primary" />
-                {timeStr}
-              </span>
-              <span className="flex items-center gap-1 font-semibold">
-                <Banknote className="h-3 w-3 text-primary" />
-                {event.fee_type === "free"
-                  ? <span className="text-green-600">{tr.fee_free}</span>
-                  : event.fee_type === "tba"
-                    ? <span className="text-gray-400">{tr.fee_tba}</span>
-                    : <span className="text-gray-800">{event.fee_amount != null ? `¥${event.fee_amount.toLocaleString()}` : tr.fee_tba}</span>
-                }
-              </span>
-            </div>
-          </div>
-
-          {/* Status / note */}
-          {isRegistered ? (
-            <div className="mb-4">
-              <p className="text-xs text-gray-500 mb-1">
-                {lang === "ja" ? "申し込み状況" : lang === "ko" ? "신청 상태" : "Status"}
-              </p>
-              <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${
-                regStatus === "approved" ? "bg-green-100 text-green-700"
-                : regStatus === "rejected" ? "bg-red-100 text-red-600"
-                : "bg-yellow-100 text-yellow-700"
-              }`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${
-                  regStatus === "approved" ? "bg-green-500"
-                  : regStatus === "rejected" ? "bg-red-500"
-                  : "bg-yellow-500"
-                }`} />
-                {regStatus === "approved" ? tr.reg_status_approved
-                 : regStatus === "rejected" ? tr.reg_status_rejected
-                 : tr.reg_status_pending}
-              </span>
-            </div>
-          ) : (
-            <p className="text-xs text-gray-400 mb-4">{tr.reg_note}</p>
-          )}
-
-          {/* Buttons */}
-          <div className="flex flex-col sm:flex-row gap-2">
-            {isRegistered ? (
-              <>
-                <Link
-                  href="/my/reservations"
-                  className="flex-1 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white text-center hover:bg-primary/90 transition"
-                >
-                  {lang === "ja" ? "予約内容を確認する" : lang === "ko" ? "예약 내역 확인하기" : "View My Reservation"}
-                </Link>
-                <button
-                  onClick={handleCancel}
-                  disabled={cancelling}
-                  className="flex-1 sm:flex-none rounded-xl border border-red-200 px-5 py-2.5 text-sm font-semibold text-red-400 hover:bg-red-50 disabled:opacity-50 transition"
-                >
-                  {cancelling ? "..." : tr.reg_cancel_registration}
-                </button>
-              </>
-            ) : (
-              <button
-                onClick={handleRegister}
-                disabled={applying}
-                className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-white hover:bg-primary/90 disabled:opacity-60 transition"
-              >
-                {applying ? tr.reg_applying : `${tr.reg_apply} →`}
-              </button>
+        {/* Register section — hidden for past events */}
+        {isPast ? (
+          <div className="rounded-2xl border border-gray-200 bg-gray-50 p-6 flex items-center gap-3 text-gray-400">
+            <History className="h-5 w-5 shrink-0" />
+            <p className="text-sm font-medium">
+              {lang === "ja" ? "このイベントは終了しました。" : lang === "ko" ? "종료된 이벤트입니다." : "This event has ended."}
+            </p>
+            {regStatus === "approved" && (
+              <Link href="/my/reservations" className="ml-auto text-xs font-bold text-primary hover:underline shrink-0">
+                {lang === "ja" ? "レビューを書く →" : lang === "ko" ? "리뷰 작성 →" : "Write a review →"}
+              </Link>
             )}
           </div>
-        </div>
-        {/* Review Form — approved users who haven't reviewed yet */}
-        {regStatus === "approved" && !hasReviewed && (
-          <div className="mt-4 bg-white rounded-2xl border border-gray-200 p-6">
-            <h3 className="font-extrabold text-gray-900 mb-4">{tr.review_write}</h3>
-            {reviewDone ? (
-              <p className="text-green-600 font-semibold text-sm">{tr.review_submitted}</p>
-            ) : (
-              <div className="space-y-5">
-                {/* Event review */}
-                <div>
-                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">{tr.review_event_title}</p>
-                  <StarPicker value={eventStars} onChange={setEventStars} />
-                  <textarea
-                    rows={2}
-                    value={eventText}
-                    onChange={(e) => setEventText(e.target.value)}
-                    placeholder={tr.review_placeholder}
-                    className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 resize-none"
-                  />
-                </div>
-                {/* Host review */}
-                {event.host_id && (
-                  <div>
-                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">{tr.review_host_title}</p>
-                    <StarPicker value={hostStars} onChange={setHostStars} />
-                    <textarea
-                      rows={2}
-                      value={hostText}
-                      onChange={(e) => setHostText(e.target.value)}
-                      placeholder={tr.review_placeholder}
-                      className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 resize-none"
-                    />
-                  </div>
-                )}
-                <button
-                  onClick={handleSubmitReview}
-                  disabled={submittingReview || eventStars === 0 || (!!event.host_id && hostStars === 0)}
-                  className="w-full rounded-xl bg-primary py-2.5 text-sm font-bold text-white hover:bg-primary/90 disabled:opacity-50 transition"
-                >
-                  {submittingReview ? "..." : tr.review_submit}
-                </button>
+        ) : (
+          <div className={`rounded-2xl border-2 p-6 ${isRegistered ? "bg-green-50 border-green-200" : "bg-white border-primary/20"}`}>
+            {/* Header */}
+            <div className="flex items-center gap-2 mb-4">
+              {isRegistered
+                ? <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
+                : <AlertCircle className="h-5 w-5 text-primary shrink-0" />
+              }
+              <h2 className="font-extrabold text-gray-900 text-base">
+                {isRegistered ? tr.reg_cta_registered : tr.reg_cta_title}
+              </h2>
+            </div>
+
+            {/* Event summary */}
+            <div className="bg-white rounded-xl border border-gray-100 p-4 mb-4 space-y-2">
+              <p className="font-bold text-gray-900 text-sm leading-snug">{title}</p>
+              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500 mt-1">
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-3 w-3 text-primary" />
+                  {dateStr}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Clock className="h-3 w-3 text-primary" />
+                  {timeStr}
+                </span>
+                <span className="flex items-center gap-1 font-semibold">
+                  <Banknote className="h-3 w-3 text-primary" />
+                  {event.fee_type === "free"
+                    ? <span className="text-green-600">{tr.fee_free}</span>
+                    : event.fee_type === "tba"
+                      ? <span className="text-gray-400">{tr.fee_tba}</span>
+                      : <span className="text-gray-800">{event.fee_amount != null ? `¥${event.fee_amount.toLocaleString()}` : tr.fee_tba}</span>
+                  }
+                </span>
               </div>
+            </div>
+
+            {/* Status / note */}
+            {isRegistered ? (
+              <div className="mb-4">
+                <p className="text-xs text-gray-500 mb-1">
+                  {lang === "ja" ? "申し込み状況" : lang === "ko" ? "신청 상태" : "Status"}
+                </p>
+                <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${
+                  regStatus === "approved" ? "bg-green-100 text-green-700"
+                  : regStatus === "rejected" ? "bg-red-100 text-red-600"
+                  : "bg-yellow-100 text-yellow-700"
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${
+                    regStatus === "approved" ? "bg-green-500"
+                    : regStatus === "rejected" ? "bg-red-500"
+                    : "bg-yellow-500"
+                  }`} />
+                  {regStatus === "approved" ? tr.reg_status_approved
+                   : regStatus === "rejected" ? tr.reg_status_rejected
+                   : tr.reg_status_pending}
+                </span>
+              </div>
+            ) : (
+              <p className="text-xs text-gray-400 mb-4">{tr.reg_note}</p>
             )}
+
+            {/* Buttons */}
+            <div className="flex flex-col sm:flex-row gap-2">
+              {isRegistered ? (
+                <>
+                  <Link
+                    href="/my/reservations"
+                    className="flex-1 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-white text-center hover:bg-primary/90 transition"
+                  >
+                    {lang === "ja" ? "予約内容を確認する" : lang === "ko" ? "예약 내역 확인하기" : "View My Reservation"}
+                  </Link>
+                  <button
+                    onClick={handleCancel}
+                    disabled={cancelling}
+                    className="flex-1 sm:flex-none rounded-xl border border-red-200 px-5 py-2.5 text-sm font-semibold text-red-400 hover:bg-red-50 disabled:opacity-50 transition"
+                  >
+                    {cancelling ? "..." : tr.reg_cancel_registration}
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={handleRegister}
+                  disabled={applying}
+                  className="w-full rounded-xl bg-primary py-3 text-sm font-bold text-white hover:bg-primary/90 disabled:opacity-60 transition"
+                >
+                  {applying ? tr.reg_applying : `${tr.reg_apply} →`}
+                </button>
+              )}
+            </div>
           </div>
-        )}
-        {hasReviewed && !reviewDone && (
-          <p className="mt-3 text-center text-xs text-gray-400">{tr.review_already}</p>
         )}
 
         {/* Reviews list */}
