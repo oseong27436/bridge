@@ -178,14 +178,12 @@ export default function ReservationsPage() {
 
   const activeRegs = registrations.filter((r) => {
     if (r.status === "cancelled") return false;
-    const eventDate = new Date((r.event?.date ?? "") + "T23:59:59");
-    return eventDate >= new Date();
+    return r.event?.status !== "finished";
   });
 
   const pastApprovedRegs = registrations.filter((r) => {
     if (r.status !== "approved" && r.status !== "attended") return false;
-    const eventDate = new Date((r.event?.date ?? "") + "T23:59:59");
-    return eventDate < new Date();
+    return r.event?.status === "finished";
   });
 
   const statusLabel = (status: string) => {

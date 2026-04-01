@@ -418,6 +418,7 @@ export default function AdminEventsPage() {
                   options={[
                     { value: "published", label: tr.status_published },
                     { value: "draft", label: tr.status_draft },
+                    { value: "finished", label: tr.status_finished },
                   ]}
                   form={form} setForm={setForm} />
               </div>
@@ -599,8 +600,14 @@ export default function AdminEventsPage() {
                   <div className="flex items-start justify-between gap-2 mb-2">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap mb-1">
-                        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${e.status === "published" ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
-                          {e.status === "published" ? tr.status_published : tr.status_draft}
+                        <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                          e.status === "published" ? "bg-green-100 text-green-700"
+                          : e.status === "finished" ? "bg-blue-100 text-blue-700"
+                          : "bg-gray-100 text-gray-500"
+                        }`}>
+                          {e.status === "published" ? tr.status_published
+                            : e.status === "finished" ? tr.status_finished
+                            : tr.status_draft}
                         </span>
                         <span className="rounded-full bg-orange-100 text-orange-600 px-2 py-0.5 text-xs font-semibold">
                           {tr[`cat_${e.category}` as keyof typeof tr] as string ?? e.category}

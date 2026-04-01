@@ -149,7 +149,7 @@ export default function EventDetailPage() {
   const timeStr = event.time_end
     ? `${event.time_start} 〜 ${event.time_end}`
     : `${event.time_start} 〜`;
-  const isPast = new Date(event.date + "T23:59:59") < new Date();
+  const isPast = event.status === "finished";
 
   return (
     <div className="min-h-screen flex flex-col bg-gray-50">
