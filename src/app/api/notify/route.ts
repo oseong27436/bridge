@@ -1,34 +1,70 @@
 import { NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 
-function buildMessage(action: 'applied' | 'approved' | 'rejected', eventTitle: string, lang: string, openChatUrl?: string | null): string {
-  const chatLine = openChatUrl && action === 'approved'
-    ? (lang === 'ko'
+const DEFAULTS: Record<string, Record<string, string>> = {
+  applied: {
+    ja: '📋 イベント「{eventTitle}」への参加申請を受け付けました。承認をお待ちください。',
+    ko: '📋 이벤트 「{eventTitle}」 참가 신청이 접수되었습니다. 승인을 기다려주세요.',
+    en: '📋 Your registration for "{eventTitle}" has been received. Please wait for approval.',
+  },
+  approved: {
+    ja: '🎉 イベント「{eventTitle}」への参加が承認されました！当日お会いできるのを楽しみにしています。{openChatLine}',
+    ko: '🎉 이벤트 「{eventTitle}」 참가가 승인되었습니다! 당일 뵙겠습니다.{openChatLine}',
+    en: '🎉 Your registration for "{eventTitle}" has been approved! See you there!{openChatLine}',
+  },
+  rejected: {
+    ja: '「{eventTitle}」への参加申請は今回見送りとなりました。またのご参加をお待ちしています。',
+    ko: '「{eventTitle}」 참가 신청은 이번에 승인되지 않았습니다. 다음에 또 신청해주세요.',
+    en: 'Your registration for "{eventTitle}" was not approved this time. Hope to see you at future events!',
+  },
+}
+
+async function buildMessage(
+  action: 'applied' | 'approved' | 'rejected',
+  eventTitle: string,
+  lang: string,
+  openChatUrl?: string | null
+): Promise<string> {
+  const resolvedLang = ['ja', 'ko', 'en'].includes(lang) ? lang : 'ja'
+
+  // Build the open chat line for approved messages
+  const openChatLine = openChatUrl && action === 'approved'
+    ? (resolvedLang === 'ko'
         ? `\n\n📢 오픈채팅 참가: ${openChatUrl}`
-        : lang === 'en'
+        : resolvedLang === 'en'
         ? `\n\n📢 Join our open chat: ${openChatUrl}`
         : `\n\n📢 オープンチャットに参加する: ${openChatUrl}`)
     : ''
 
-  if (lang === 'ko') {
-    if (action === 'applied') return `📋 이벤트 「${eventTitle}」 참가 신청이 접수되었습니다. 승인을 기다려주세요.`
-    if (action === 'approved') return `🎉 이벤트 「${eventTitle}」 참가가 승인되었습니다! 당일 뵙겠습니다.${chatLine}`
-    return `「${eventTitle}」 참가 신청은 이번에 승인되지 않았습니다. 다음에 또 신청해주세요.`
+  // Try to fetch template from DB
+  let template: string | null = null
+  try {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    )
+    const { data } = await supabase
+      .from('bridge_line_templates')
+      .select('body')
+      .eq('action', action)
+      .eq('lang', resolvedLang)
+      .maybeSingle()
+    if (data?.body) template = data.body
+  } catch {
+    // fallback to defaults
   }
-  if (lang === 'en') {
-    if (action === 'applied') return `📋 Your registration for "${eventTitle}" has been received. Please wait for approval.`
-    if (action === 'approved') return `🎉 Your registration for "${eventTitle}" has been approved! See you there!${chatLine}`
-    return `Your registration for "${eventTitle}" was not approved this time. Hope to see you at future events!`
-  }
-  // Default: Japanese
-  if (action === 'applied') return `📋 イベント「${eventTitle}」への参加申請を受け付けました。承認をお待ちください。`
-  if (action === 'approved') return `🎉 イベント「${eventTitle}」への参加が承認されました！当日お会いできるのを楽しみにしています。${chatLine}`
-  return `「${eventTitle}」への参加申請は今回見送りとなりました。またのご参加をお待ちしています。`
+
+  const body = template ?? DEFAULTS[action]?.[resolvedLang] ?? DEFAULTS[action]?.['ja'] ?? ''
+
+  return body
+    .replace('{eventTitle}', eventTitle)
+    .replace('{openChatLine}', openChatLine)
 }
 
 export async function POST(request: Request) {
   try {
     const { lineUserId, email, action, eventTitle, openChatUrl, lang = 'ja' } = await request.json()
-    const text = buildMessage(action, eventTitle, lang, openChatUrl)
+    const text = await buildMessage(action, eventTitle, lang, openChatUrl)
 
     // LINE push notification
     if (lineUserId && process.env.LINE_MESSAGING_ACCESS_TOKEN) {

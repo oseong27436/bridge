@@ -60,6 +60,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { href: "/admin/gallery", label: tr.admin_gallery },
     { href: "/admin/reviews", label: tr.admin_reviews },
     { href: "/admin/users", label: tr.admin_users },
+    { href: "/admin/line", label: tr.admin_line },
     { href: "/admin/settings", label: tr.admin_settings },
   ];
 
