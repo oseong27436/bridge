@@ -20,8 +20,7 @@ interface BridgeProfile {
   email: string;
   gender?: "male" | "female" | "other";
   native_lang?: NativeLang;
-  target_lang?: NativeLang;
-  target_level?: TargetLevel;
+  target_langs?: { lang: NativeLang; level: TargetLevel }[];
   avatar_url?: string | null;
   line_user_id?: string | null;
 }
@@ -85,8 +84,7 @@ export default function ProfilePage() {
   const [editName, setEditName] = useState("");
   const [editGender, setEditGender] = useState("");
   const [editNativeLang, setEditNativeLang] = useState("");
-  const [editTargetLang, setEditTargetLang] = useState("");
-  const [editTargetLevel, setEditTargetLevel] = useState(0);
+  const [editTargetLangs, setEditTargetLangs] = useState<{ lang: NativeLang; level: TargetLevel }[]>([]);
   const [editAvatarUrl, setEditAvatarUrl] = useState("");
 
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -115,8 +113,7 @@ export default function ProfilePage() {
         setEditName(data.name ?? "");
         setEditGender(data.gender ?? "");
         setEditNativeLang(data.native_lang ?? "");
-        setEditTargetLang(data.target_lang ?? "");
-        setEditTargetLevel(data.target_level ?? 0);
+        setEditTargetLangs(data.target_langs ?? []);
         setEditAvatarUrl(data.avatar_url ?? "");
       }
       setLoading(false);
@@ -173,8 +170,7 @@ export default function ProfilePage() {
           name: editName,
           gender: editGender || null,
           native_lang: editNativeLang || null,
-          target_lang: editTargetLang || null,
-          target_level: editTargetLevel || null,
+          target_langs: editTargetLangs,
           avatar_url: editAvatarUrl || null,
         })
         .eq("id", user.id);
@@ -302,31 +298,20 @@ export default function ProfilePage() {
                   </p>
                 </div>
 
-                {/* Target lang */}
+                {/* Target langs */}
                 <div>
-                  <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">
+                  <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">
                     {tr.signup_target_lang}
                   </p>
-                  <p className="text-sm text-gray-800">
-                    {profile?.target_lang
-                      ? ((tr[LANG_KEYS[profile.target_lang] as keyof typeof tr] as string) ?? "—")
-                      : "—"}
-                  </p>
-                </div>
-
-                {/* Level */}
-                <div>
-                  <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">
-                    {tr.signup_level}
-                  </p>
-                  {profile?.target_level ? (
-                    <span
-                      className={`inline-block rounded-full px-3 py-0.5 text-xs font-semibold ${
-                        LEVEL_COLORS[profile.target_level] ?? "bg-gray-100 text-gray-600"
-                      }`}
-                    >
-                      {(tr[LEVEL_KEYS[profile.target_level] as keyof typeof tr] as string) ?? "—"}
-                    </span>
+                  {profile?.target_langs?.length ? (
+                    <div className="flex flex-wrap gap-2">
+                      {profile.target_langs.map((t, i) => (
+                        <div key={i} className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${LEVEL_COLORS[t.level] ?? "bg-gray-100 text-gray-600"}`}>
+                          <span>{(tr[LANG_KEYS[t.lang] as keyof typeof tr] as string) ?? t.lang}</span>
+                          <span className="opacity-60">Lv.{t.level}</span>
+                        </div>
+                      ))}
+                    </div>
                   ) : (
                     <p className="text-sm text-gray-800">—</p>
                   )}
@@ -440,42 +425,51 @@ export default function ProfilePage() {
                 </select>
               </div>
 
-              {/* Target lang */}
+              {/* Target langs */}
               <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1">
+                <label className="block text-xs font-semibold text-gray-500 mb-2">
                   {tr.signup_target_lang}
                 </label>
-                <select
-                  value={editTargetLang}
-                  onChange={(e) => setEditTargetLang(e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary bg-white"
-                >
-                  <option value="">—</option>
-                  {["ja", "ko", "en", "zh", "other"].map((l) => (
-                    <option key={l} value={l}>
-                      {tr[`lang_${l}` as keyof typeof tr] as string}
-                    </option>
+                <div className="space-y-2">
+                  {editTargetLangs.map((entry, idx) => (
+                    <div key={idx} className="rounded-xl border border-gray-200 p-3">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex flex-wrap gap-1.5">
+                          {(["ja", "ko", "en", "zh", "other"] as NativeLang[]).map((l) => (
+                            <button key={l} type="button"
+                              onClick={() => setEditTargetLangs((prev) => prev.map((t, i) => i === idx ? { ...t, lang: l } : t))}
+                              className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors ${entry.lang === l ? "bg-primary border-primary text-white" : "border-gray-300 text-gray-500 hover:border-primary hover:text-primary"}`}>
+                              {tr[`lang_${l}` as keyof typeof tr] as string}
+                            </button>
+                          ))}
+                        </div>
+                        {editTargetLangs.length > 1 && (
+                          <button type="button" onClick={() => setEditTargetLangs((prev) => prev.filter((_, i) => i !== idx))}
+                            className="ml-2 text-gray-300 hover:text-red-400 text-lg leading-none">×</button>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-6 gap-1">
+                        {([1, 2, 3, 4, 5, 6] as TargetLevel[]).map((lvl) => (
+                          <button key={lvl} type="button"
+                            onClick={() => setEditTargetLangs((prev) => prev.map((t, i) => i === idx ? { ...t, level: lvl } : t))}
+                            className={`rounded-lg border py-1.5 text-xs font-bold transition-all ${entry.level === lvl ? `${LEVEL_COLORS[lvl]} border-current scale-105` : "border-gray-200 text-gray-400 hover:border-gray-400"}`}>
+                            {lvl}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="mt-1 text-[10px] text-center text-gray-400">
+                        {tr[`level_${entry.level}` as keyof typeof tr] as string}
+                      </p>
+                    </div>
                   ))}
-                </select>
-              </div>
-
-              {/* Level */}
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 mb-1">
-                  {tr.signup_level}
-                </label>
-                <select
-                  value={editTargetLevel}
-                  onChange={(e) => setEditTargetLevel(Number(e.target.value))}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-primary bg-white"
-                >
-                  <option value={0}>—</option>
-                  {[1, 2, 3, 4, 5, 6].map((n) => (
-                    <option key={n} value={n}>
-                      {tr[`level_${n}` as keyof typeof tr] as string}
-                    </option>
-                  ))}
-                </select>
+                </div>
+                {editTargetLangs.length < 3 && (
+                  <button type="button"
+                    onClick={() => setEditTargetLangs((prev) => [...prev, { lang: "en", level: 1 as TargetLevel }])}
+                    className="mt-2 w-full rounded-xl border-2 border-dashed border-gray-300 py-2 text-xs font-semibold text-gray-400 hover:border-primary hover:text-primary transition-colors">
+                    + 言語を追加 / 언어 추가
+                  </button>
+                )}
               </div>
 
               <div className="flex gap-2 pt-2">
