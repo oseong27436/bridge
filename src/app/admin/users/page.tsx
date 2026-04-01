@@ -18,6 +18,7 @@ export default function AdminUsersPage() {
   const [users, setUsers] = useState<DbProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [lineFilter, setLineFilter] = useState<"all" | "linked" | "unlinked">("all");
 
   // Detail modal
   const [detail, setDetail] = useState<DbProfile | null>(null);
@@ -82,10 +83,15 @@ export default function AdminUsersPage() {
     load();
   }
 
-  const filtered = users.filter((u) =>
-    u.name.toLowerCase().includes(search.toLowerCase()) ||
-    u.email.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = users.filter((u) => {
+    const matchSearch = u.name.toLowerCase().includes(search.toLowerCase()) ||
+      u.email.toLowerCase().includes(search.toLowerCase());
+    const matchLine = lineFilter === "all" ? true
+      : lineFilter === "linked" ? !!u.line_user_id
+      : !u.line_user_id;
+    return matchSearch && matchLine;
+  });
+  const linkedCount = users.filter((u) => !!u.line_user_id).length;
 
   const statusColor: Record<string, string> = {
     registered: "bg-blue-100 text-blue-700",
@@ -118,6 +124,22 @@ export default function AdminUsersPage() {
         </div>
       </div>
 
+      {/* LINE filter tabs */}
+      <div className="flex gap-1 mb-4 bg-gray-100 rounded-xl p-1 w-fit">
+        {([
+          { value: "all", label: `전체 (${users.length})` },
+          { value: "linked", label: `LINE 연동 (${linkedCount})` },
+          { value: "unlinked", label: `미연동 (${users.length - linkedCount})` },
+        ] as const).map((tab) => (
+          <button key={tab.value} onClick={() => setLineFilter(tab.value)}
+            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${
+              lineFilter === tab.value ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+            }`}>
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {/* Table */}
       {loading ? (
         <div className="animate-pulse space-y-2">
@@ -136,6 +158,7 @@ export default function AdminUsersPage() {
                 <th className="px-4 py-3 font-semibold text-gray-600">{tr.field_name}</th>
                 <th className="px-4 py-3 font-semibold text-gray-600">{tr.field_email}</th>
                 <th className="px-4 py-3 font-semibold text-gray-600">{tr.field_role}</th>
+                <th className="px-4 py-3 font-semibold text-gray-600">LINE</th>
                 <th className="px-4 py-3 font-semibold text-gray-600">{tr.field_registrations}</th>
                 <th className="px-4 py-3 font-semibold text-gray-600">{tr.field_attended}</th>
                 <th className="px-4 py-3 font-semibold text-gray-600">{tr.field_joined}</th>
@@ -163,6 +186,12 @@ export default function AdminUsersPage() {
                     <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${u.role === "admin" ? "bg-primary/10 text-primary" : "bg-gray-100 text-gray-500"}`}>
                       {u.role === "admin" ? tr.role_admin : tr.role_user}
                     </span>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    {u.line_user_id
+                      ? <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-bold bg-green-100 text-green-700">연동됨</span>
+                      : <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-bold bg-gray-100 text-gray-400">미연동</span>
+                    }
                   </td>
                   <td className="px-4 py-3 text-center font-semibold text-gray-700">{u.registration_count ?? 0}</td>
                   <td className="px-4 py-3 text-center font-semibold text-green-600">{u.attended_count ?? 0}</td>
@@ -222,6 +251,9 @@ export default function AdminUsersPage() {
                       {detail.gender === "male" ? (lang === "ja" ? "男性" : lang === "en" ? "Male" : "남성") : (lang === "ja" ? "女性" : lang === "en" ? "Female" : "여성")}
                     </span>
                   )}
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${detail.line_user_id ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-400"}`}>
+                    {detail.line_user_id ? "LINE 연동됨" : "LINE 미연동"}
+                  </span>
                 </div>
               </div>
             </div>
