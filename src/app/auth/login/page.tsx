@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import { useLanguage } from "@/context/language-context";
@@ -20,8 +20,9 @@ function detectInAppBrowser(): "kakao" | "instagram" | "line" | "facebook" | nul
 }
 
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { lang } = useLanguage();
   const tr = translations[lang];
 
@@ -30,6 +31,7 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [iab, setIab] = useState<"kakao" | "instagram" | "line" | "facebook" | null>(null);
+  const lineLinked = searchParams.get("line_linked") === "1";
 
   useEffect(() => {
     setIab(detectInAppBrowser());
@@ -87,6 +89,12 @@ export default function LoginPage() {
               </Link>
               <p className="mt-1 text-sm text-gray-500">{tr.login_subtitle}</p>
             </div>
+
+            {lineLinked && (
+              <div className="mb-5 rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-sm text-green-700 font-semibold text-center">
+                ✅ LINE 연동이 완료됐어요! 다시 로그인해주세요.
+              </div>
+            )}
 
             {/* LINE SSO */}
             <button
@@ -175,5 +183,13 @@ export default function LoginPage() {
       </main>
       <Footer />
     </>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginContent />
+    </Suspense>
   );
 }
