@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
-import { getAllEvents, type DbEvent } from "@/lib/db";
+import { getAllEvents, getEventImages, type DbEvent, type DbEventImage } from "@/lib/db";
 import { useLanguage } from "@/context/language-context";
 import { translations } from "@/lib/i18n";
-import { MessageSquare, Send, Save, RotateCcw, ChevronDown, Inbox, CornerDownRight } from "lucide-react";
+import { MessageSquare, Send, Save, RotateCcw, ChevronDown, Inbox, CornerDownRight, Users, Globe } from "lucide-react";
 
 type Action = "applied" | "approved" | "rejected";
 type Tab = "inbox" | "broadcast" | "template";
+type TargetType = "all" | "event";
 
 interface LineMessage {
   id: string;
@@ -55,9 +56,13 @@ export default function AdminLinePage() {
   // broadcast
   const [events, setEvents] = useState<DbEvent[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<string>("");
+  const [targetType, setTargetType] = useState<TargetType>("all");
   const [broadcastMsg, setBroadcastMsg] = useState("");
   const [lineUserCount, setLineUserCount] = useState<number>(0);
-  const [broadcastImageUrl, setBroadcastImageUrl] = useState("");
+  const [eventLineCount, setEventLineCount] = useState<number | null>(null);
+  const [loadingEventCount, setLoadingEventCount] = useState(false);
+  const [eventImages, setEventImages] = useState<{ url: string; id: string }[]>([]);
+  const [selectedImageUrls, setSelectedImageUrls] = useState<string[]>([]);
   const [sending, setSending] = useState(false);
   const [sendResult, setSendResult] = useState<{ ok: number; fail: number } | null>(null);
 
@@ -70,7 +75,6 @@ export default function AdminLinePage() {
   useEffect(() => {
     const supabase = createClient();
 
-    // load messages
     supabase
       .from("bridge_line_messages")
       .select("*")
@@ -81,7 +85,6 @@ export default function AdminLinePage() {
         setLoadingMessages(false);
       });
 
-    // load templates (lang='all')
     supabase
       .from("bridge_line_templates")
       .select("action, body")
@@ -97,12 +100,10 @@ export default function AdminLinePage() {
         setLoadingTemplates(false);
       });
 
-    // load events
     getAllEvents().then((evs) => {
-      setEvents(evs.filter((e) => e.status === "published" || !e.status));
+      setEvents(evs.filter((e) => e.status === "published" || e.status === "finished" || !e.status));
     });
 
-    // count LINE users
     supabase
       .from("bridge_profiles")
       .select("id", { count: "exact" })
@@ -110,12 +111,18 @@ export default function AdminLinePage() {
       .then(({ count }) => setLineUserCount(count ?? 0));
   }, []);
 
-  // Auto-fill broadcast message when event is selected
+  // Load event images + registrant LINE count when event changes
   useEffect(() => {
-    if (!selectedEventId) { setBroadcastImageUrl(""); return; }
+    setSelectedImageUrls([]);
+    setEventImages([]);
+    setEventLineCount(null);
+
+    if (!selectedEventId) { setBroadcastMsg(""); return; }
+
     const ev = events.find((e) => e.id === selectedEventId);
     if (!ev) return;
 
+    // Auto-fill message
     const dateJa = ev.date ? new Date(ev.date + "T00:00:00").toLocaleDateString("ja-JP", { month: "long", day: "numeric", weekday: "short" }) : "";
     const dateEn = ev.date ? new Date(ev.date + "T00:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", weekday: "long" }) : "";
     const time = ev.time_start ? ` ${ev.time_start}〜` : "";
@@ -126,14 +133,53 @@ export default function AdminLinePage() {
     const titleJa = ev.title_ja || ev.title_ko || "";
     const titleEn = ev.title_en || ev.title_ja || ev.title_ko || "";
     const linkLine = ev.location_url ? `\n🗺 ${ev.location_url}` : "";
-
     setBroadcastMsg(
       `📣 イベントのお知らせ\n\n「${titleJa}」\n📅 ${dateJa}${time}\n📍 ${locationJa}${linkLine}\n💴 ${feeJa}\n\n参加申請はこちらからどうぞ！` +
       `\n\n---\n\n` +
       `📣 Event Announcement\n\n「${titleEn}」\n📅 ${dateEn}${time}\n📍 ${locationEn}${linkLine}\n💴 ${feeEn}\n\nTo apply for participation, click here!`
     );
-    setBroadcastImageUrl(ev.image_url ?? "");
+
+    // Load event images
+    const imgs: { url: string; id: string }[] = [];
+    if (ev.image_url) imgs.push({ id: "main", url: ev.image_url });
+    getEventImages(selectedEventId).then((dbImgs: DbEventImage[]) => {
+      dbImgs.forEach((img) => {
+        if (!imgs.find((i) => i.url === img.image_url)) {
+          imgs.push({ id: img.id, url: img.image_url });
+        }
+      });
+      setEventImages(imgs);
+    });
   }, [selectedEventId, events]);
+
+  // Load LINE-connected registrant count when targetType=event
+  useEffect(() => {
+    if (targetType !== "event" || !selectedEventId) { setEventLineCount(null); return; }
+    setLoadingEventCount(true);
+    const supabase = createClient();
+    supabase
+      .from("bridge_registrations")
+      .select("user_id")
+      .eq("event_id", selectedEventId)
+      .in("status", ["pending", "approved", "attended"])
+      .then(async ({ data: regs }) => {
+        if (!regs?.length) { setEventLineCount(0); setLoadingEventCount(false); return; }
+        const userIds = regs.map((r: { user_id: string }) => r.user_id);
+        const { count } = await supabase
+          .from("bridge_profiles")
+          .select("id", { count: "exact" })
+          .in("id", userIds)
+          .not("line_user_id", "is", null);
+        setEventLineCount(count ?? 0);
+        setLoadingEventCount(false);
+      });
+  }, [targetType, selectedEventId]);
+
+  function toggleImage(url: string) {
+    setSelectedImageUrls((prev) =>
+      prev.includes(url) ? prev.filter((u) => u !== url) : [...prev, url]
+    );
+  }
 
   async function handleSaveAction(action: Action) {
     setSavingAction(action);
@@ -159,13 +205,22 @@ export default function AdminLinePage() {
 
   async function handleBroadcast() {
     if (!broadcastMsg.trim()) return;
-    if (!confirm(`LINE 연동 유저 ${lineUserCount}명에게 메시지를 발송할까요?`)) return;
+    const targetCount = targetType === "event" ? eventLineCount : lineUserCount;
+    const targetLabel = targetType === "event"
+      ? `이 이벤트 신청자 중 LINE 연동 ${targetCount}명`
+      : `LINE 연동 전체 유저 ${targetCount}명`;
+    if (!confirm(`${targetLabel}에게 메시지를 발송할까요?`)) return;
     setSending(true);
     setSendResult(null);
     const res = await fetch("/api/broadcast", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: broadcastMsg, imageUrl: broadcastImageUrl || null }),
+      body: JSON.stringify({
+        message: broadcastMsg,
+        imageUrls: selectedImageUrls,
+        targetType,
+        eventId: selectedEventId || null,
+      }),
     });
     const data = await res.json();
     setSendResult({ ok: data.ok ?? 0, fail: data.fail ?? 0 });
@@ -192,6 +247,8 @@ export default function AdminLinePage() {
     }
     setSendingReply(null);
   }
+
+  const recipientCount = targetType === "event" ? eventLineCount : lineUserCount;
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -239,7 +296,6 @@ export default function AdminLinePage() {
           ) : (
             messages.map((msg) => (
               <div key={msg.id} className={`bg-white rounded-2xl border p-4 ${msg.replied_at ? "border-gray-200" : "border-green-200"}`}>
-                {/* Header */}
                 <div className="flex items-center gap-3 mb-3">
                   {msg.picture_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -259,13 +315,9 @@ export default function AdminLinePage() {
                     <span className="shrink-0 rounded-full bg-green-100 text-green-700 text-[10px] font-bold px-2 py-1">NEW</span>
                   )}
                 </div>
-
-                {/* Message bubble */}
                 <div className="bg-gray-50 rounded-xl px-4 py-3 text-sm text-gray-800 whitespace-pre-wrap mb-3">
                   {msg.message_text}
                 </div>
-
-                {/* Replied content */}
                 {msg.replied_at && msg.reply_text && (
                   <div className="flex items-start gap-2 mb-3">
                     <CornerDownRight className="h-3.5 w-3.5 text-gray-400 mt-1 shrink-0" />
@@ -274,8 +326,6 @@ export default function AdminLinePage() {
                     </div>
                   </div>
                 )}
-
-                {/* Reply form */}
                 {!msg.replied_at && (
                   replyingId === msg.id ? (
                     <div className="flex gap-2 mt-1">
@@ -316,6 +366,38 @@ export default function AdminLinePage() {
       {/* ── 일괄 발송 탭 ── */}
       {tab === "broadcast" && (
         <div className="space-y-4">
+          {/* Target type */}
+          <div className="bg-white rounded-2xl border border-gray-200 p-5">
+            <p className="text-sm font-bold text-gray-700 mb-3">
+              {lang === "ja" ? "送信対象" : lang === "en" ? "Recipients" : "발송 대상"}
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setTargetType("all")}
+                className={`flex-1 flex items-center justify-center gap-2 rounded-xl border-2 px-4 py-3 text-sm font-semibold transition-colors ${
+                  targetType === "all" ? "border-primary bg-primary/5 text-primary" : "border-gray-200 text-gray-500 hover:border-gray-300"
+                }`}
+              >
+                <Globe className="h-4 w-4" />
+                {lang === "ja" ? "LINE連携全員" : lang === "en" ? "All LINE users" : "LINE 연동 전체"}
+                <span className="ml-1 text-xs font-bold text-gray-400">({lineUserCount}{lang === "ja" ? "名" : lang === "en" ? "" : "명"})</span>
+              </button>
+              <button
+                onClick={() => setTargetType("event")}
+                className={`flex-1 flex items-center justify-center gap-2 rounded-xl border-2 px-4 py-3 text-sm font-semibold transition-colors ${
+                  targetType === "event" ? "border-primary bg-primary/5 text-primary" : "border-gray-200 text-gray-500 hover:border-gray-300"
+                }`}
+              >
+                <Users className="h-4 w-4" />
+                {lang === "ja" ? "イベント申請者" : lang === "en" ? "Event registrants" : "이벤트 신청자"}
+                {targetType === "event" && eventLineCount !== null && (
+                  <span className="ml-1 text-xs font-bold text-gray-400">({eventLineCount}{lang === "ja" ? "名" : lang === "en" ? "" : "명"})</span>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Event select */}
           <div className="bg-white rounded-2xl border border-gray-200 p-5">
             <p className="text-sm font-bold text-gray-700 mb-3">{tr.line_event_select}</p>
             <div className="relative">
@@ -336,37 +418,75 @@ export default function AdminLinePage() {
             <p className="text-xs text-gray-400 mt-2">{tr.line_event_select_desc}</p>
           </div>
 
+          {/* Event image picker */}
+          {selectedEventId && eventImages.length > 0 && (
+            <div className="bg-white rounded-2xl border border-gray-200 p-5">
+              <p className="text-sm font-bold text-gray-700 mb-1">
+                {lang === "ja" ? "画像を選択（複数可）" : lang === "en" ? "Select images (multiple)" : "이미지 선택 (다중 가능)"}
+              </p>
+              <p className="text-xs text-gray-400 mb-3">
+                {lang === "ja" ? "選択した画像がテキストより先に送信されます。最大4枚。" : lang === "en" ? "Selected images will be sent before the text. Max 4." : "선택한 이미지가 텍스트 앞에 먼저 발송됩니다. 최대 4장."}
+              </p>
+              <div className="grid grid-cols-4 gap-2">
+                {eventImages.map((img) => {
+                  const selected = selectedImageUrls.includes(img.url);
+                  const idx = selectedImageUrls.indexOf(img.url);
+                  const disabled = !selected && selectedImageUrls.length >= 4;
+                  return (
+                    <button
+                      key={img.id}
+                      onClick={() => !disabled && toggleImage(img.url)}
+                      disabled={disabled}
+                      className={`relative aspect-square rounded-xl overflow-hidden border-2 transition-all ${
+                        selected ? "border-primary" : "border-transparent"
+                      } ${disabled ? "opacity-40 cursor-not-allowed" : "cursor-pointer hover:opacity-90"}`}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={img.url} alt="" className="w-full h-full object-cover" />
+                      {selected && (
+                        <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
+                          <span className="bg-primary text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">
+                            {idx + 1}
+                          </span>
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              {selectedImageUrls.length > 0 && (
+                <button onClick={() => setSelectedImageUrls([])} className="mt-2 text-xs text-gray-400 hover:text-gray-600 underline">
+                  {lang === "ja" ? "選択解除" : lang === "en" ? "Clear selection" : "선택 해제"}
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Message */}
           <div className="bg-white rounded-2xl border border-gray-200 p-5">
             <p className="text-sm font-bold text-gray-700 mb-3">{tr.line_msg_label}</p>
             <textarea
               rows={8}
               value={broadcastMsg}
               onChange={(e) => setBroadcastMsg(e.target.value)}
-              placeholder={lang === "ja" ? "LINEユーザー全員に送るメッセージを入力してください。" : lang === "en" ? "Enter a message to send to all LINE users." : "LINE 연동 유저 전체에게 보낼 메시지를 입력하세요."}
+              placeholder={lang === "ja" ? "メッセージを入力してください。" : lang === "en" ? "Enter a message." : "메시지를 입력하세요."}
               className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 resize-none"
             />
-            <div className="mt-3">
-              <p className="text-xs font-semibold text-gray-500 mb-1.5">{tr.line_img_label}</p>
-              <div className="flex gap-2 items-center">
-                <input
-                  type="url"
-                  value={broadcastImageUrl}
-                  onChange={(e) => setBroadcastImageUrl(e.target.value)}
-                  placeholder="https://..."
-                  className="flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
-                />
-                {broadcastImageUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={broadcastImageUrl} alt="" className="w-12 h-12 rounded-lg object-cover border border-gray-200 shrink-0" />
-                )}
-              </div>
-              <p className="text-[11px] text-gray-400 mt-1">{tr.line_img_desc}</p>
-            </div>
             <div className="flex items-center justify-between mt-3">
-              <p className="text-xs text-gray-400">{tr.line_send_target} <span className="font-bold text-gray-700">{lineUserCount}{lang === "ja" ? "名" : lang === "en" ? "" : "명"}</span></p>
+              <p className="text-xs text-gray-400">
+                {lang === "ja" ? "送信対象: " : lang === "en" ? "To: " : "발송 대상: "}
+                <span className="font-bold text-gray-700">
+                  {targetType === "event"
+                    ? loadingEventCount
+                      ? "..."
+                      : `${lang === "ja" ? "イベント申請者" : lang === "en" ? "event registrants" : "이벤트 신청자"} ${eventLineCount ?? 0}${lang === "ja" ? "名" : lang === "en" ? "" : "명"}`
+                    : `${lang === "ja" ? "LINE全員" : lang === "en" ? "all LINE users" : "LINE 전체"} ${lineUserCount}${lang === "ja" ? "名" : lang === "en" ? "" : "명"}`
+                  }
+                </span>
+              </p>
               <button
                 onClick={handleBroadcast}
-                disabled={sending || !broadcastMsg.trim() || lineUserCount === 0}
+                disabled={sending || !broadcastMsg.trim() || (recipientCount ?? 0) === 0 || (targetType === "event" && !selectedEventId)}
                 className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-primary/90 disabled:opacity-50 transition"
               >
                 <Send className="h-4 w-4" />
