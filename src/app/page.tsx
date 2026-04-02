@@ -219,10 +219,59 @@ export default function HomePage() {
             </div>
           )}
 
-          {/* Hosts */}
-          <h3 id="hosts" className="text-lg font-bold text-gray-800 mt-10 mb-4">
+        </section>
+
+        {/* ── REVIEWS ───────────────────────────────────────────────── */}
+        <section className="bg-gray-50 border-y border-gray-100">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6 py-12">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">{tr.latest_reviews}</h2>
+            </div>
+            {loading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[1,2,3].map(i => <div key={i} className="h-28 rounded-2xl bg-gray-200 animate-pulse" />)}
+              </div>
+            ) : reviews.length === 0 ? (
+              <EmptyState icon="💬" message={lang === "ja" ? "まだレビューはありません" : lang === "ko" ? "아직 등록된 리뷰가 없어요" : "No reviews yet"} />
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {reviews.map((r) => {
+                  const profile = r.profile as { name?: string; avatar_url?: string } | undefined;
+                  const event = r.event as { title_ko?: string; title_ja?: string; title_en?: string } | undefined;
+                  const eventName = event ? (lang === "ko" ? event.title_ko : lang === "en" ? event.title_en : event.title_ja) : null;
+                  return (
+                    <div key={r.id} className="bg-white rounded-2xl border border-gray-100 p-4">
+                      <div className="flex items-center gap-2.5 mb-3">
+                        <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-sm font-bold text-gray-400 shrink-0 overflow-hidden">
+                          {profile?.avatar_url
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            ? <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
+                            : profile?.name?.charAt(0) ?? "?"}
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-800">{profile?.name ?? (lang === "ja" ? "匿名" : lang === "en" ? "Anonymous" : "익명")}</p>
+                          <div className="flex">
+                            {[1,2,3,4,5].map((s) => (
+                              <Star key={s} className={`h-3 w-3 fill-current ${s <= r.stars ? "text-yellow-400" : "text-gray-200"}`} />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                      {eventName && <p className="text-xs text-primary font-medium mb-1">{eventName}</p>}
+                      {r.text && <p className="text-sm text-gray-500 leading-relaxed line-clamp-3">{r.text}</p>}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* ── HOSTS ─────────────────────────────────────────────────── */}
+        <section className="mx-auto max-w-6xl px-4 sm:px-6 py-12">
+          <h2 id="hosts" className="text-2xl font-bold text-gray-900 mb-6">
             {lang === "ja" ? "ホストを紹介" : lang === "ko" ? "호스트 소개" : "Meet our hosts"}
-          </h3>
+          </h2>
           {loading ? (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               {[1,2,3,4].map(i => <div key={i} className="h-48 rounded-2xl bg-gray-100 animate-pulse" />)}
@@ -275,47 +324,6 @@ export default function HomePage() {
                   </div>
                 </div>
               ))}
-            </div>
-          </section>
-        )}
-
-        {/* ── REVIEWS ───────────────────────────────────────────────── */}
-        {reviews.length > 0 && (
-          <section className="mx-auto max-w-6xl px-4 sm:px-6 py-12">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">{tr.latest_reviews}</h2>
-              <Link href="/reviews" className="text-sm font-semibold text-primary hover:underline">
-                {lang === "ja" ? "すべて見る" : lang === "en" ? "See all" : "전체 보기"} →
-              </Link>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {reviews.map((r) => {
-                const profile = r.profile as { name?: string; avatar_url?: string } | undefined;
-                const event = r.event as { title_ko?: string; title_ja?: string; title_en?: string } | undefined;
-                const eventName = event ? (lang === "ko" ? event.title_ko : lang === "en" ? event.title_en : event.title_ja) : null;
-                return (
-                  <div key={r.id} className="bg-white rounded-2xl border border-gray-100 p-4">
-                    <div className="flex items-center gap-2.5 mb-3">
-                      <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-sm font-bold text-gray-400 shrink-0 overflow-hidden">
-                        {profile?.avatar_url
-                          /* eslint-disable-next-line @next/next/no-img-element */
-                          ? <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
-                          : profile?.name?.charAt(0) ?? "?"}
-                      </div>
-                      <div>
-                        <p className="text-sm font-semibold text-gray-800">{profile?.name ?? (lang === "ja" ? "匿名" : lang === "en" ? "Anonymous" : "익명")}</p>
-                        <div className="flex">
-                          {[1,2,3,4,5].map((s) => (
-                            <Star key={s} className={`h-3 w-3 fill-current ${s <= r.stars ? "text-yellow-400" : "text-gray-200"}`} />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                    {eventName && <p className="text-xs text-primary font-medium mb-1">{eventName}</p>}
-                    {r.text && <p className="text-sm text-gray-500 leading-relaxed line-clamp-3">{r.text}</p>}
-                  </div>
-                );
-              })}
             </div>
           </section>
         )}

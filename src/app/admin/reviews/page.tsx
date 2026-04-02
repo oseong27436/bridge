@@ -29,10 +29,15 @@ export default function AdminReviewsPage() {
   const localeStr = lang === "ja" ? "ja-JP" : lang === "ko" ? "ko-KR" : "en-US";
 
   async function load() {
-    const [ev, ho] = await Promise.all([getAllReviews(), getAllHostReviews()]);
-    setEventReviews(ev);
-    setHostReviews(ho);
-    setLoading(false);
+    try {
+      const [ev, ho] = await Promise.all([getAllReviews(), getAllHostReviews()]);
+      setEventReviews(ev);
+      setHostReviews(ho);
+    } catch (err) {
+      console.error("Failed to load reviews:", err);
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => { load(); }, []);
