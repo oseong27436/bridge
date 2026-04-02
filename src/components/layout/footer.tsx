@@ -80,7 +80,12 @@ export default function Footer() {
           <p className="text-xs text-muted-foreground">
             © {new Date().getFullYear()} Bridge Osaka. All rights reserved.
           </p>
-          <p className="text-xs text-muted-foreground">Built by oseong</p>
+          <div className="flex flex-col items-end gap-0.5">
+            <p className="text-xs text-muted-foreground">Built by oseong</p>
+            <a href="mailto:oseong27436@gmail.com" className="text-xs text-muted-foreground hover:text-foreground transition-colors">
+              ✉️ oseong27436@gmail.com
+            </a>
+          </div>
         </div>
       </div>
     </footer>
