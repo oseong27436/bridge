@@ -238,41 +238,63 @@ export default function HomePage() {
         {/* ── REVIEWS ───────────────────────────────────────────────── */}
         <section className="bg-gray-50 border-y border-gray-100">
           <div className="mx-auto max-w-6xl px-4 sm:px-6 py-12">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">{tr.latest_reviews}</h2>
-            </div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">{tr.latest_reviews}</h2>
             {loading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {[1,2,3].map(i => <div key={i} className="h-28 rounded-2xl bg-gray-200 animate-pulse" />)}
+              <div className="flex gap-4 overflow-hidden">
+                {[1,2,3].map(i => <div key={i} className="h-52 w-72 shrink-0 rounded-2xl bg-gray-200 animate-pulse" />)}
               </div>
             ) : reviews.length === 0 ? (
               <EmptyState icon="💬" message={lang === "ja" ? "まだレビューはありません" : lang === "ko" ? "아직 등록된 리뷰가 없어요" : "No reviews yet"} />
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide">
                 {reviews.map((r) => {
                   const profile = r.profile as { name?: string; avatar_url?: string } | undefined;
-                  const event = r.event as { title_ko?: string; title_ja?: string; title_en?: string } | undefined;
+                  const event = r.event as { title_ko?: string; title_ja?: string; title_en?: string; image_url?: string; category?: string; date?: string; time_start?: string; time_end?: string; location_ko?: string; location_ja?: string; location_en?: string } | undefined;
                   const eventName = event ? (lang === "ko" ? event.title_ko : lang === "en" ? event.title_en : event.title_ja) : null;
+                  const location = event ? (lang === "ko" ? event.location_ko : lang === "en" ? event.location_en : event.location_ja) : null;
                   return (
-                    <div key={r.id} className="bg-white rounded-2xl border border-gray-100 p-4">
-                      <div className="flex items-center gap-2.5 mb-3">
-                        <div className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-sm font-bold text-gray-400 shrink-0 overflow-hidden">
-                          {profile?.avatar_url
-                            /* eslint-disable-next-line @next/next/no-img-element */
-                            ? <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
-                            : profile?.name?.charAt(0) ?? "?"}
+                    <div key={r.id} className="shrink-0 w-72 snap-start bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                      {/* Event thumbnail */}
+                      <div className="relative h-32 bg-gray-200">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={event?.image_url || siteImgs[event?.category ?? ""] || siteImgs.meetup}
+                          alt={eventName ?? ""}
+                          className="w-full h-full object-cover"
+                        />
+                        {event?.category && (
+                          <span className="absolute top-2 left-2 text-[10px] font-bold uppercase bg-black/50 text-white px-2 py-0.5 rounded-full backdrop-blur-sm">
+                            {event.category}
+                          </span>
+                        )}
+                      </div>
+                      <div className="p-3">
+                        {/* Event info */}
+                        {eventName && <p className="text-xs font-bold text-gray-900 line-clamp-1 mb-0.5">{eventName}</p>}
+                        {(location || event?.date) && (
+                          <p className="text-[11px] text-gray-400 mb-2 line-clamp-1">
+                            {location}{location && event?.date ? " · " : ""}{event?.date}
+                          </p>
+                        )}
+                        {/* Stars */}
+                        <div className="flex mb-2">
+                          {[1,2,3,4,5].map((s) => (
+                            <Star key={s} className={`h-3 w-3 fill-current ${s <= r.stars ? "text-yellow-400" : "text-gray-200"}`} />
+                          ))}
                         </div>
-                        <div>
-                          <p className="text-sm font-semibold text-gray-800">{profile?.name ?? (lang === "ja" ? "匿名" : lang === "en" ? "Anonymous" : "익명")}</p>
-                          <div className="flex">
-                            {[1,2,3,4,5].map((s) => (
-                              <Star key={s} className={`h-3 w-3 fill-current ${s <= r.stars ? "text-yellow-400" : "text-gray-200"}`} />
-                            ))}
+                        {/* Review text */}
+                        {r.text && <p className="text-xs text-gray-500 leading-relaxed line-clamp-3 mb-3">{r.text}</p>}
+                        {/* Reviewer */}
+                        <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
+                          <div className="w-6 h-6 rounded-full bg-gray-100 shrink-0 overflow-hidden flex items-center justify-center text-[10px] font-bold text-gray-400">
+                            {profile?.avatar_url
+                              /* eslint-disable-next-line @next/next/no-img-element */
+                              ? <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
+                              : profile?.name?.charAt(0) ?? "?"}
                           </div>
+                          <p className="text-xs font-semibold text-gray-700">{profile?.name ?? (lang === "ja" ? "匿名" : lang === "en" ? "Anonymous" : "익명")}</p>
                         </div>
                       </div>
-                      {eventName && <p className="text-xs text-primary font-medium mb-1">{eventName}</p>}
-                      {r.text && <p className="text-sm text-gray-500 leading-relaxed line-clamp-3">{r.text}</p>}
                     </div>
                   );
                 })}
@@ -293,33 +315,40 @@ export default function HomePage() {
           ) : hosts.length === 0 ? (
             <EmptyState icon="👋" message={lang === "ja" ? "ホストはまだいません" : lang === "ko" ? "아직 등록된 호스트가 없어요" : "No hosts yet"} />
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               {hosts.map((host) => {
                 const stats = hostStats[host.id];
                 return (
-                  <button key={host.id} onClick={() => openHostModal(host)} className="rounded-2xl border border-gray-200 bg-white p-4 flex flex-col items-center text-center hover:shadow-md transition-shadow cursor-pointer text-left w-full">
-                    <div className="w-16 h-16 rounded-full overflow-hidden bg-gray-200 mb-3 ring-2 ring-primary/20">
+                  <button key={host.id} onClick={() => openHostModal(host)} className="group rounded-2xl overflow-hidden bg-white border border-gray-100 hover:shadow-lg transition-shadow cursor-pointer text-left w-full">
+                    {/* Square profile image */}
+                    <div className="aspect-square overflow-hidden bg-gray-200">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={host.avatar_url || "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200&q=80"} alt={host.name} className="h-full w-full object-cover" />
+                      <img
+                        src={host.avatar_url || "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&q=80"}
+                        alt={host.name}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
                     </div>
-                    <div className="flex flex-wrap gap-1 justify-center mb-2">
-                      <span className="rounded-full text-[10px] font-bold bg-gray-100 text-gray-500 px-2 py-0.5">{host.location}</span>
-                      {host.langs.map((l) => (
-                        <span key={l} className="rounded-full text-[10px] font-bold bg-orange-100 text-orange-600 px-2 py-0.5">{l}</span>
-                      ))}
-                    </div>
-                    <h4 className="text-sm font-bold text-gray-900 mb-1">{host.name}</h4>
-                    <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed mb-2">{hostBio(host, lang)}</p>
-                    <div className="flex items-center gap-1 text-xs text-gray-500">
-                      {stats && stats.review_count > 0 ? (
-                        <>
-                          <span className="text-yellow-400">★</span>
-                          <span className="font-semibold">{stats.avg_stars}</span>
-                          <span className="text-gray-400">({stats.review_count})</span>
-                        </>
-                      ) : (
-                        <span className="text-gray-300">{lang === "ja" ? "レビューなし" : lang === "en" ? "No reviews" : "리뷰 없음"}</span>
-                      )}
+                    <div className="p-3">
+                      <h4 className="text-sm font-bold text-gray-900 mb-1.5">{host.name}</h4>
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        <span className="rounded-full text-[10px] font-semibold bg-gray-100 text-gray-500 px-2 py-0.5">{host.location}</span>
+                        {host.langs.map((l) => (
+                          <span key={l} className="rounded-full text-[10px] font-semibold bg-orange-50 text-orange-500 px-2 py-0.5">{l}</span>
+                        ))}
+                      </div>
+                      <p className="text-[11px] text-gray-400 line-clamp-2 leading-relaxed mb-2">{hostBio(host, lang)}</p>
+                      <div className="flex items-center gap-1 text-xs">
+                        {stats && stats.review_count > 0 ? (
+                          <>
+                            <span className="text-yellow-400 text-sm">★</span>
+                            <span className="font-bold text-gray-800">{stats.avg_stars}</span>
+                            <span className="text-gray-400">({stats.review_count})</span>
+                          </>
+                        ) : (
+                          <span className="text-gray-300 text-[11px]">{lang === "ja" ? "レビューなし" : lang === "en" ? "No reviews" : "리뷰 없음"}</span>
+                        )}
+                      </div>
                     </div>
                   </button>
                 );
