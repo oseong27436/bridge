@@ -30,14 +30,18 @@ export default function AdminReviewsPage() {
 
   async function load() {
     try {
-      const [ev, ho] = await Promise.all([getAllReviews(), getAllHostReviews()]);
+      const ev = await getAllReviews();
       setEventReviews(ev);
+    } catch (err) {
+      console.error("Failed to load event reviews:", err);
+    }
+    try {
+      const ho = await getAllHostReviews();
       setHostReviews(ho);
     } catch (err) {
-      console.error("Failed to load reviews:", err);
-    } finally {
-      setLoading(false);
+      console.error("Failed to load host reviews:", err);
     }
+    setLoading(false);
   }
 
   useEffect(() => { load(); }, []);
