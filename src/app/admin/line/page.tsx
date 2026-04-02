@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
-import { getAllEvents, eventTitle, type DbEvent } from "@/lib/db";
+import { getAllEvents, type DbEvent } from "@/lib/db";
+import { useLanguage } from "@/context/language-context";
+import { translations } from "@/lib/i18n";
 import { MessageSquare, Send, Save, RotateCcw, ChevronDown } from "lucide-react";
 
 type Action = "applied" | "approved" | "rejected";
@@ -48,6 +50,8 @@ const ACTION_COLORS: Record<Action, string> = {
 const LANG_LABELS = { ja: "日本語", ko: "한국어", en: "English" };
 
 export default function AdminLinePage() {
+  const { lang } = useLanguage();
+  const tr = translations[lang];
   const [tab, setTab] = useState<"template" | "broadcast">("broadcast");
   const [templates, setTemplates] = useState<AllTemplates>(JSON.parse(JSON.stringify(DEFAULTS)));
   const [loadingTemplates, setLoadingTemplates] = useState(true);
@@ -91,13 +95,22 @@ export default function AdminLinePage() {
     if (!selectedEventId) { setBroadcastImageUrl(""); return; }
     const ev = events.find((e) => e.id === selectedEventId);
     if (!ev) return;
-    const date = ev.date ? new Date(ev.date + "T00:00:00").toLocaleDateString("ja-JP", { month: "long", day: "numeric", weekday: "short" }) : "";
+
+    const dateJa = ev.date ? new Date(ev.date + "T00:00:00").toLocaleDateString("ja-JP", { month: "long", day: "numeric", weekday: "short" }) : "";
+    const dateEn = ev.date ? new Date(ev.date + "T00:00:00").toLocaleDateString("en-US", { month: "long", day: "numeric", weekday: "long" }) : "";
     const time = ev.time_start ? ` ${ev.time_start}〜` : "";
-    const location = ev.location_ja || ev.location_ko || "";
-    const fee = ev.fee_type === "free" ? "無料" : ev.fee_type === "paid" && ev.fee_amount ? `¥${ev.fee_amount.toLocaleString()}` : "料金未定";
+    const locationJa = ev.location_ja || ev.location_ko || "";
+    const locationEn = ev.location_en || ev.location_ja || ev.location_ko || "";
+    const feeJa = ev.fee_type === "free" ? "無料" : ev.fee_type === "paid" && ev.fee_amount ? `¥${ev.fee_amount.toLocaleString()}` : "料金未定";
+    const feeEn = ev.fee_type === "free" ? "Free" : ev.fee_type === "paid" && ev.fee_amount ? `¥${ev.fee_amount.toLocaleString()}` : "TBA";
+    const titleJa = ev.title_ja || ev.title_ko || "";
+    const titleEn = ev.title_en || ev.title_ja || ev.title_ko || "";
     const linkLine = ev.location_url ? `\n🗺 ${ev.location_url}` : "";
+
     setBroadcastMsg(
-      `📣 イベントのお知らせ\n\n「${ev.title_ja || ev.title_ko}」\n📅 ${date}${time}\n📍 ${location}${linkLine}\n💴 ${fee}\n\n参加申請はこちらからどうぞ！`
+      `📣 イベントのお知らせ\n\n「${titleJa}」\n📅 ${dateJa}${time}\n📍 ${locationJa}${linkLine}\n💴 ${feeJa}\n\n参加申請はこちらからどうぞ！` +
+      `\n\n---\n\n` +
+      `📣 Event Announcement\n\n「${titleEn}」\n📅 ${dateEn}${time}\n📍 ${locationEn}${linkLine}\n💴 ${feeEn}\n\nTo apply for participation, click here!`
     );
     setBroadcastImageUrl(ev.image_url ?? "");
   }, [selectedEventId, events]);
@@ -115,7 +128,7 @@ export default function AdminLinePage() {
   }
 
   async function handleResetAction(action: Action) {
-    if (!confirm("이 액션의 템플릿을 기본값으로 되돌릴까요?")) return;
+    if (!confirm(tr.line_reset_confirm)) return;
     setTemplates((prev) => ({ ...prev, [action]: { ...DEFAULTS[action] } }));
     const supabase = createClient();
     const rows = (["ja", "ko", "en"] as const).map((l) => ({
@@ -155,11 +168,11 @@ export default function AdminLinePage() {
       <div className="flex gap-1 mb-6 bg-gray-100 rounded-xl p-1 w-fit">
         <button onClick={() => setTab("broadcast")}
           className={`px-5 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === "broadcast" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
-          일괄 발송
+          {tr.line_broadcast_tab}
         </button>
         <button onClick={() => setTab("template")}
           className={`px-5 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === "template" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
-          알림 템플릿
+          {tr.line_template_tab}
         </button>
       </div>
 
@@ -168,14 +181,14 @@ export default function AdminLinePage() {
         <div className="space-y-4">
           {/* Event select */}
           <div className="bg-white rounded-2xl border border-gray-200 p-5">
-            <p className="text-sm font-bold text-gray-700 mb-3">이벤트 선택 (선택사항)</p>
+            <p className="text-sm font-bold text-gray-700 mb-3">{tr.line_event_select}</p>
             <div className="relative">
               <select
                 value={selectedEventId}
                 onChange={(e) => setSelectedEventId(e.target.value)}
                 className="w-full appearance-none rounded-xl border border-gray-200 px-4 py-2.5 pr-10 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 bg-white"
               >
-                <option value="">— 이벤트 선택 안 함</option>
+                <option value="">{tr.line_event_none}</option>
                 {events.map((ev) => (
                   <option key={ev.id} value={ev.id}>
                     {ev.title_ja || ev.title_ko} {ev.date ? `(${ev.date})` : ""}
@@ -184,12 +197,12 @@ export default function AdminLinePage() {
               </select>
               <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
             </div>
-            <p className="text-xs text-gray-400 mt-2">이벤트를 선택하면 메시지가 자동으로 채워집니다.</p>
+            <p className="text-xs text-gray-400 mt-2">{tr.line_event_select_desc}</p>
           </div>
 
           {/* Message */}
           <div className="bg-white rounded-2xl border border-gray-200 p-5">
-            <p className="text-sm font-bold text-gray-700 mb-3">발송 메시지</p>
+            <p className="text-sm font-bold text-gray-700 mb-3">{tr.line_msg_label}</p>
             <textarea
               rows={6}
               value={broadcastMsg}
@@ -199,7 +212,7 @@ export default function AdminLinePage() {
             />
             {/* Image */}
             <div className="mt-3">
-              <p className="text-xs font-semibold text-gray-500 mb-1.5">이미지 URL (선택사항)</p>
+              <p className="text-xs font-semibold text-gray-500 mb-1.5">{tr.line_img_label}</p>
               <div className="flex gap-2 items-center">
                 <input
                   type="url"
@@ -213,22 +226,22 @@ export default function AdminLinePage() {
                   <img src={broadcastImageUrl} alt="" className="w-12 h-12 rounded-lg object-cover border border-gray-200 shrink-0" />
                 )}
               </div>
-              <p className="text-[11px] text-gray-400 mt-1">이미지를 설정하면 텍스트 메시지 앞에 이미지가 먼저 발송됩니다.</p>
+              <p className="text-[11px] text-gray-400 mt-1">{tr.line_img_desc}</p>
             </div>
             <div className="flex items-center justify-between mt-3">
-              <p className="text-xs text-gray-400">발송 대상: LINE 연동 유저 <span className="font-bold text-gray-700">{lineUserCount}명</span></p>
+              <p className="text-xs text-gray-400">{tr.line_send_target} <span className="font-bold text-gray-700">{lineUserCount}{lang === "ja" ? "名" : lang === "en" ? "" : "명"}</span></p>
               <button
                 onClick={handleBroadcast}
                 disabled={sending || !broadcastMsg.trim() || lineUserCount === 0}
                 className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-primary/90 disabled:opacity-50 transition"
               >
                 <Send className="h-4 w-4" />
-                {sending ? "발송 중..." : "전체 발송"}
+                {sending ? tr.line_sending : tr.line_send_btn}
               </button>
             </div>
             {sendResult && (
               <div className={`mt-3 rounded-xl px-4 py-3 text-sm font-semibold ${sendResult.fail === 0 ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-700"}`}>
-                ✅ 성공 {sendResult.ok}건{sendResult.fail > 0 ? ` / ❌ 실패 ${sendResult.fail}건` : ""}
+                ✅ {sendResult.ok}{tr.line_result_ok}{sendResult.fail > 0 ? ` / ❌ ${sendResult.fail}${tr.line_result_fail}` : ""}
               </div>
             )}
           </div>
@@ -239,7 +252,7 @@ export default function AdminLinePage() {
       {tab === "template" && (
         <div className="space-y-5">
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-xs text-amber-800">
-            <p className="font-bold mb-1">사용 가능한 변수</p>
+            <p className="font-bold mb-1">{tr.line_vars_title}</p>
             <ul className="space-y-0.5">
               <li><code className="bg-amber-100 px-1 rounded">{"{eventTitle}"}</code> — 이벤트명</li>
               <li><code className="bg-amber-100 px-1 rounded">{"{openChatLine}"}</code> — 오픈채팅 링크 (approved 전용, 설정된 경우 자동 삽입)</li>
@@ -265,7 +278,7 @@ export default function AdminLinePage() {
                         savedAction === action ? "bg-green-100 text-green-700" : "bg-primary text-white hover:bg-primary/90"
                       } disabled:opacity-60`}>
                       <Save className="h-3 w-3" />
-                      {savingAction === action ? "저장 중..." : savedAction === action ? "저장됨 ✓" : "저장"}
+                      {savingAction === action ? tr.admin_saving : savedAction === action ? "✓" : tr.admin_save}
                     </button>
                   </div>
                 </div>
