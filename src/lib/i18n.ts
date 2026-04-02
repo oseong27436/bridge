@@ -255,6 +255,12 @@ export const translations = {
     line_result_fail: "件失敗",
     line_vars_title: "使用可能な変数",
     line_reset_confirm: "このアクションのテンプレートをデフォルトに戻しますか？",
+    line_inbox_tab: "受信メッセージ",
+    line_inbox_empty: "受信メッセージはありません",
+    line_inbox_reply: "返信",
+    line_inbox_replied: "返信済み",
+    line_inbox_reply_placeholder: "返信メッセージを入力...",
+    line_inbox_send_reply: "送信",
   },
 
   ko: {
@@ -502,6 +508,12 @@ export const translations = {
     line_result_fail: "건 실패",
     line_vars_title: "사용 가능한 변수",
     line_reset_confirm: "이 액션의 템플릿을 기본값으로 되돌릴까요?",
+    line_inbox_tab: "받은 메시지",
+    line_inbox_empty: "받은 메시지가 없습니다",
+    line_inbox_reply: "답장",
+    line_inbox_replied: "답장 완료",
+    line_inbox_reply_placeholder: "답장 메시지 입력...",
+    line_inbox_send_reply: "전송",
   },
 
   en: {
@@ -749,6 +761,12 @@ export const translations = {
     line_result_fail: "failed",
     line_vars_title: "Available variables",
     line_reset_confirm: "Reset this template to default?",
+    line_inbox_tab: "Inbox",
+    line_inbox_empty: "No messages received",
+    line_inbox_reply: "Reply",
+    line_inbox_replied: "Replied",
+    line_inbox_reply_placeholder: "Type a reply...",
+    line_inbox_send_reply: "Send",
   },
 } as const;
 
