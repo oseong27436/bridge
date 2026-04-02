@@ -421,6 +421,14 @@ export default function EventDetailPage() {
                       </div>
                     </div>
                     {r.text && <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{r.text}</p>}
+                    {((r as { image_urls?: string[] }).image_urls ?? []).length > 0 && (
+                      <div className="flex gap-1 mt-1 flex-wrap">
+                        {((r as { image_urls?: string[] }).image_urls ?? []).map((url: string) => (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img key={url} src={url} alt="" className="w-16 h-16 rounded-lg object-cover border border-gray-100" />
+                        ))}
+                      </div>
+                    )}
                     <p className="text-[10px] text-gray-300 mt-0.5">
                       {new Date(r.created_at).toLocaleDateString(localeStr)}
                     </p>

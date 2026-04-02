@@ -103,12 +103,23 @@ export default function AdminReviewsPage() {
                   const profile = r.profile as { name?: string } | undefined;
                   const event = r.event as { title_ko?: string; title_ja?: string; title_en?: string } | undefined;
                   const eventName = event ? (lang === "ko" ? event.title_ko : lang === "en" ? event.title_en : event.title_ja) : "-";
+                  const images = (r as { image_urls?: string[] }).image_urls ?? [];
                   return (
                     <tr key={r.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 font-medium text-gray-900 whitespace-nowrap">{profile?.name ?? "-"}</td>
                       <td className="px-4 py-3 text-gray-500 max-w-[140px] truncate">{eventName}</td>
                       <td className="px-4 py-3"><StarRow stars={r.stars} /></td>
-                      <td className="px-4 py-3 text-gray-500 max-w-[200px] truncate">{r.text ?? "-"}</td>
+                      <td className="px-4 py-3 text-gray-500 max-w-[200px]">
+                        <p className="truncate">{r.text ?? "-"}</p>
+                        {images.length > 0 && (
+                          <div className="flex gap-1 mt-1">
+                            {images.map((url) => (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img key={url} src={url} alt="" className="w-8 h-8 rounded object-cover border border-gray-100" />
+                            ))}
+                          </div>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-gray-400 text-xs whitespace-nowrap">
                         {new Date(r.created_at).toLocaleDateString(localeStr)}
                       </td>
@@ -116,9 +127,11 @@ export default function AdminReviewsPage() {
                         <div className="flex items-center gap-2 justify-end">
                           <button
                             onClick={() => toggleEventFeatured(r)}
-                            className={`text-xs font-semibold px-2 py-1 rounded-lg transition-colors ${r.featured ? "bg-primary/10 text-primary" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
+                            className={`text-xs font-semibold px-2.5 py-1 rounded-lg transition-colors ${r.featured ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
                           >
-                            {r.featured ? "★ " : "☆ "}{tr.review_featured}
+                            {r.featured
+                              ? (lang === "ko" ? "공개 중" : lang === "en" ? "Public" : "公開中")
+                              : (lang === "ko" ? "비공개" : lang === "en" ? "Hidden" : "非公開")}
                           </button>
                           <button onClick={() => deleteEventReview(r.id)} className="text-xs text-red-500 hover:underline">
                             {tr.admin_delete}
@@ -168,9 +181,11 @@ export default function AdminReviewsPage() {
                         <div className="flex items-center gap-2 justify-end">
                           <button
                             onClick={() => toggleHostFeatured(r)}
-                            className={`text-xs font-semibold px-2 py-1 rounded-lg transition-colors ${r.featured ? "bg-primary/10 text-primary" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
+                            className={`text-xs font-semibold px-2.5 py-1 rounded-lg transition-colors ${r.featured ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500 hover:bg-gray-200"}`}
                           >
-                            {r.featured ? "★ " : "☆ "}{tr.review_featured}
+                            {r.featured
+                              ? (lang === "ko" ? "공개 중" : lang === "en" ? "Public" : "公開中")
+                              : (lang === "ko" ? "비공개" : lang === "en" ? "Hidden" : "非公開")}
                           </button>
                           <button onClick={() => deleteHostReview(r.id)} className="text-xs text-red-500 hover:underline">
                             {tr.admin_delete}

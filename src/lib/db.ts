@@ -204,7 +204,7 @@ export async function getAllReviews(): Promise<DbReview[]> {
   const supabase = createClient();
   const { data } = await supabase
     .from("bridge_reviews")
-    .select("*, event:bridge_events(title_ko,title_ja,title_en), profile:bridge_profiles(name,avatar_url)")
+    .select("*, image_urls, event:bridge_events(title_ko,title_ja,title_en), profile:bridge_profiles(name,avatar_url)")
     .order("created_at", { ascending: false });
   return data ?? [];
 }
@@ -213,8 +213,9 @@ export async function getEventReviews(eventId: string): Promise<DbReview[]> {
   const supabase = createClient();
   const { data } = await supabase
     .from("bridge_reviews")
-    .select("*, profile:bridge_profiles(name,avatar_url)")
+    .select("*, image_urls, profile:bridge_profiles(name,avatar_url)")
     .eq("event_id", eventId)
+    .eq("featured", true)
     .order("created_at", { ascending: false });
   return data ?? [];
 }
