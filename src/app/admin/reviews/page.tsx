@@ -61,8 +61,10 @@ export default function AdminReviewsPage() {
       }
     }
 
-    setEventReviews((evData ?? []).map((r: DbReview) => ({ ...r, profile: profileMap[r.user_id] ?? null })));
-    setHostReviews((hoData ?? []).map((r: DbHostReview) => ({ ...r, profile: profileMap[r.user_id] ?? null })));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    setEventReviews((evData ?? []).map((r: any) => ({ ...r, profile: profileMap[r.user_id] ?? null })) as DbReview[]);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    setHostReviews((hoData ?? []).map((r: any) => ({ ...r, profile: profileMap[r.user_id] ?? null })) as DbHostReview[]);
     setLoading(false);
   }
 
