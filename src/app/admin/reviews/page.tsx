@@ -33,14 +33,14 @@ export default function AdminReviewsPage() {
 
     const { data: evData, error: evErr } = await supabase
       .from("bridge_reviews")
-      .select("*, image_urls, event:bridge_events(title_ko,title_ja,title_en), profile:bridge_profiles(name,avatar_url)")
+      .select("*, image_urls, event:bridge_events!event_id(title_ko,title_ja,title_en), profile:bridge_profiles!user_id(name,avatar_url)")
       .order("created_at", { ascending: false });
     if (evErr) console.error("bridge_reviews error:", evErr);
     setEventReviews(evData ?? []);
 
     const { data: hoData, error: hoErr } = await supabase
       .from("bridge_host_reviews")
-      .select("*, host:bridge_hosts(name,avatar_url), profile:bridge_profiles(name,avatar_url)")
+      .select("*, host:bridge_hosts!host_id(name,avatar_url), profile:bridge_profiles!user_id(name,avatar_url)")
       .order("created_at", { ascending: false });
     if (hoErr) console.error("bridge_host_reviews error:", hoErr);
     setHostReviews(hoData ?? []);
