@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Star } from "lucide-react";
 import { createClient } from "@/lib/supabase";
-import { getAllReviews, getAllHostReviews, type DbReview, type DbHostReview } from "@/lib/db";
+import { type DbReview, type DbHostReview } from "@/lib/db";
 import { useLanguage } from "@/context/language-context";
 import { translations } from "@/lib/i18n";
 
@@ -29,18 +29,22 @@ export default function AdminReviewsPage() {
   const localeStr = lang === "ja" ? "ja-JP" : lang === "ko" ? "ko-KR" : "en-US";
 
   async function load() {
-    try {
-      const ev = await getAllReviews();
-      setEventReviews(ev);
-    } catch (err) {
-      console.error("Failed to load event reviews:", err);
-    }
-    try {
-      const ho = await getAllHostReviews();
-      setHostReviews(ho);
-    } catch (err) {
-      console.error("Failed to load host reviews:", err);
-    }
+    const supabase = createClient();
+
+    const { data: evData, error: evErr } = await supabase
+      .from("bridge_reviews")
+      .select("*, image_urls, event:bridge_events(title_ko,title_ja,title_en), profile:bridge_profiles(name,avatar_url)")
+      .order("created_at", { ascending: false });
+    if (evErr) console.error("bridge_reviews error:", evErr);
+    setEventReviews(evData ?? []);
+
+    const { data: hoData, error: hoErr } = await supabase
+      .from("bridge_host_reviews")
+      .select("*, host:bridge_hosts(name,avatar_url), profile:bridge_profiles(name,avatar_url)")
+      .order("created_at", { ascending: false });
+    if (hoErr) console.error("bridge_host_reviews error:", hoErr);
+    setHostReviews(hoData ?? []);
+
     setLoading(false);
   }
 
