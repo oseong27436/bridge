@@ -59,6 +59,7 @@ export default function AdminLinePage() {
   const [selectedEventId, setSelectedEventId] = useState<string>("");
   const [broadcastMsg, setBroadcastMsg] = useState("");
   const [lineUserCount, setLineUserCount] = useState<number>(0);
+  const [broadcastImageUrl, setBroadcastImageUrl] = useState("");
   const [sending, setSending] = useState(false);
   const [sendResult, setSendResult] = useState<{ ok: number; fail: number } | null>(null);
 
@@ -87,15 +88,18 @@ export default function AdminLinePage() {
 
   // Auto-fill broadcast message when event is selected
   useEffect(() => {
-    if (!selectedEventId) return;
+    if (!selectedEventId) { setBroadcastImageUrl(""); return; }
     const ev = events.find((e) => e.id === selectedEventId);
     if (!ev) return;
     const date = ev.date ? new Date(ev.date + "T00:00:00").toLocaleDateString("ja-JP", { month: "long", day: "numeric", weekday: "short" }) : "";
     const time = ev.time_start ? ` ${ev.time_start}〜` : "";
     const location = ev.location_ja || ev.location_ko || "";
+    const fee = ev.fee_type === "free" ? "無料" : ev.fee_type === "paid" && ev.fee_amount ? `¥${ev.fee_amount.toLocaleString()}` : "料金未定";
+    const linkLine = ev.location_url ? `\n🗺 ${ev.location_url}` : "";
     setBroadcastMsg(
-      `📣 イベントのお知らせ\n\n「${ev.title_ja || ev.title_ko}」\n📅 ${date}${time}\n📍 ${location}\n\n参加申請はこちらからどうぞ！`
+      `📣 イベントのお知らせ\n\n「${ev.title_ja || ev.title_ko}」\n📅 ${date}${time}\n📍 ${location}${linkLine}\n💴 ${fee}\n\n参加申請はこちらからどうぞ！`
     );
+    setBroadcastImageUrl(ev.image_url ?? "");
   }, [selectedEventId, events]);
 
   async function handleSaveAction(action: Action) {
@@ -128,7 +132,7 @@ export default function AdminLinePage() {
     const res = await fetch("/api/broadcast", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message: broadcastMsg }),
+      body: JSON.stringify({ message: broadcastMsg, imageUrl: broadcastImageUrl || null }),
     });
     const data = await res.json();
     setSendResult({ ok: data.ok ?? 0, fail: data.fail ?? 0 });
@@ -136,7 +140,7 @@ export default function AdminLinePage() {
   }
 
   return (
-    <div className="max-w-2xl">
+    <div className="max-w-2xl mx-auto">
       <div className="flex items-center gap-3 mb-6">
         <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: "#06C755" }}>
           <MessageSquare className="h-5 w-5 text-white" />
@@ -193,6 +197,24 @@ export default function AdminLinePage() {
               placeholder={"LINE 연동 유저 전체에게 보낼 메시지를 입력하세요."}
               className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 resize-none"
             />
+            {/* Image */}
+            <div className="mt-3">
+              <p className="text-xs font-semibold text-gray-500 mb-1.5">이미지 URL (선택사항)</p>
+              <div className="flex gap-2 items-center">
+                <input
+                  type="url"
+                  value={broadcastImageUrl}
+                  onChange={(e) => setBroadcastImageUrl(e.target.value)}
+                  placeholder="https://..."
+                  className="flex-1 rounded-xl border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+                />
+                {broadcastImageUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={broadcastImageUrl} alt="" className="w-12 h-12 rounded-lg object-cover border border-gray-200 shrink-0" />
+                )}
+              </div>
+              <p className="text-[11px] text-gray-400 mt-1">이미지를 설정하면 텍스트 메시지 앞에 이미지가 먼저 발송됩니다.</p>
+            </div>
             <div className="flex items-center justify-between mt-3">
               <p className="text-xs text-gray-400">발송 대상: LINE 연동 유저 <span className="font-bold text-gray-700">{lineUserCount}명</span></p>
               <button

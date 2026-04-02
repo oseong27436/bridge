@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 
 export async function POST(request: Request) {
   try {
-    const { message } = await request.json()
+    const { message, imageUrl } = await request.json()
     if (!message?.trim()) return NextResponse.json({ ok: false }, { status: 400 })
 
     if (!process.env.LINE_MESSAGING_ACCESS_TOKEN) {
@@ -26,6 +26,12 @@ export async function POST(request: Request) {
     let failCount = 0
 
     // Send in batches to avoid rate limits
+    const messages: object[] = []
+    if (imageUrl) {
+      messages.push({ type: 'image', originalContentUrl: imageUrl, previewImageUrl: imageUrl })
+    }
+    messages.push({ type: 'text', text: message })
+
     for (const profile of profiles) {
       const res = await fetch('https://api.line.me/v2/bot/message/push', {
         method: 'POST',
@@ -35,7 +41,7 @@ export async function POST(request: Request) {
         },
         body: JSON.stringify({
           to: profile.line_user_id,
-          messages: [{ type: 'text', text: message }],
+          messages,
         }),
       })
       if (res.ok) {
