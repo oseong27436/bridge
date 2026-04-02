@@ -33,18 +33,36 @@ export default function AdminReviewsPage() {
 
     const { data: evData, error: evErr } = await supabase
       .from("bridge_reviews")
-      .select("*, image_urls, event:bridge_events!event_id(title_ko,title_ja,title_en), profile:bridge_profiles!user_id(name,avatar_url)")
+      .select("*, event:bridge_events!event_id(title_ko,title_ja,title_en)")
       .order("created_at", { ascending: false });
     if (evErr) console.error("bridge_reviews error:", evErr);
-    setEventReviews(evData ?? []);
 
     const { data: hoData, error: hoErr } = await supabase
       .from("bridge_host_reviews")
-      .select("*, host:bridge_hosts!host_id(name,avatar_url), profile:bridge_profiles!user_id(name,avatar_url)")
+      .select("*, host:bridge_hosts!host_id(name,avatar_url)")
       .order("created_at", { ascending: false });
     if (hoErr) console.error("bridge_host_reviews error:", hoErr);
-    setHostReviews(hoData ?? []);
 
+    // Fetch profiles separately (user_id FK points to auth.users, not bridge_profiles)
+    const allUserIds = [
+      ...(evData ?? []).map((r: { user_id: string }) => r.user_id),
+      ...(hoData ?? []).map((r: { user_id: string }) => r.user_id),
+    ].filter(Boolean);
+    const uniqueUserIds = [...new Set(allUserIds)];
+
+    let profileMap: Record<string, { name?: string; avatar_url?: string }> = {};
+    if (uniqueUserIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from("bridge_profiles")
+        .select("id, name, avatar_url")
+        .in("id", uniqueUserIds);
+      for (const p of profiles ?? []) {
+        profileMap[p.id] = { name: p.name, avatar_url: p.avatar_url };
+      }
+    }
+
+    setEventReviews((evData ?? []).map((r: DbReview) => ({ ...r, profile: profileMap[r.user_id] ?? null })));
+    setHostReviews((hoData ?? []).map((r: DbHostReview) => ({ ...r, profile: profileMap[r.user_id] ?? null })));
     setLoading(false);
   }
 
