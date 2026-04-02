@@ -2,6 +2,11 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createHmac } from 'crypto'
 
+// LINE may send a GET request to verify the endpoint is reachable
+export async function GET() {
+  return NextResponse.json({ ok: true })
+}
+
 function verifySignature(body: string, signature: string): boolean {
   if (!process.env.LINE_CHANNEL_SECRET) return true // skip if not configured
   const expected = createHmac('SHA256', process.env.LINE_CHANNEL_SECRET)
