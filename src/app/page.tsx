@@ -7,7 +7,7 @@ import { translations } from "@/lib/i18n";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import { getEvents, getHosts, getGallery, getReviews, getSettings, eventTitle, eventDesc, hostBio, type DbEvent, type DbHost, type DbGallery, type DbReview } from "@/lib/db";
-import { Star } from "lucide-react";
+import CorkBoard from "@/components/cork-board";
 
 const LANG_FILTERS = ["日本語", "한국어", "English", "中文"];
 
@@ -221,70 +221,20 @@ export default function HomePage() {
 
         </section>
 
-        {/* ── REVIEWS ───────────────────────────────────────────────── */}
-        <section className="bg-gray-50 border-y border-gray-100">
+        {/* ── REVIEWS (코르크보드) ───────────────────────────────────── */}
+        <section className="bg-[#b5854a]/20 border-y border-[#b5854a]/30">
           <div className="mx-auto max-w-6xl px-4 sm:px-6 py-12">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">{tr.latest_reviews}</h2>
+            <h2 className="text-2xl font-bold text-gray-900 mb-6">
+              {lang === "ja" ? "みんなのレビュー" : lang === "ko" ? "모두의 리뷰" : "Community Reviews"}
+            </h2>
             {loading ? (
-              <div className="flex gap-4 overflow-hidden">
-                {[1,2,3].map(i => <div key={i} className="h-52 w-72 shrink-0 rounded-2xl bg-gray-200 animate-pulse" />)}
-              </div>
-            ) : reviews.length === 0 ? (
-              <EmptyState icon="💬" message={lang === "ja" ? "まだレビューはありません" : lang === "ko" ? "아직 등록된 리뷰가 없어요" : "No reviews yet"} />
+              <div className="h-64 rounded-2xl bg-[#c19a6b]/40 animate-pulse" />
             ) : (
-              <div className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-hide">
-                {reviews.map((r) => {
-                  const profile = r.profile as { name?: string; avatar_url?: string } | undefined;
-                  const event = r.event as { title_ko?: string; title_ja?: string; title_en?: string; image_url?: string; category?: string; date?: string; time_start?: string; time_end?: string; location_ko?: string; location_ja?: string; location_en?: string } | undefined;
-                  const eventName = event ? (lang === "ko" ? event.title_ko : lang === "en" ? event.title_en : event.title_ja) : null;
-                  const location = event ? (lang === "ko" ? event.location_ko : lang === "en" ? event.location_en : event.location_ja) : null;
-                  return (
-                    <div key={r.id} className="shrink-0 w-72 snap-start bg-white rounded-2xl border border-gray-100 overflow-hidden">
-                      {/* Event thumbnail */}
-                      <div className="relative h-32 bg-gray-200">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={event?.image_url || siteImgs[event?.category ?? ""] || siteImgs.meetup}
-                          alt={eventName ?? ""}
-                          className="w-full h-full object-cover"
-                        />
-                        {event?.category && (
-                          <span className="absolute top-2 left-2 text-[10px] font-bold uppercase bg-black/50 text-white px-2 py-0.5 rounded-full backdrop-blur-sm">
-                            {event.category}
-                          </span>
-                        )}
-                      </div>
-                      <div className="p-3">
-                        {/* Event info */}
-                        {eventName && <p className="text-xs font-bold text-gray-900 line-clamp-1 mb-0.5">{eventName}</p>}
-                        {(location || event?.date) && (
-                          <p className="text-[11px] text-gray-400 mb-2 line-clamp-1">
-                            {location}{location && event?.date ? " · " : ""}{event?.date}
-                          </p>
-                        )}
-                        {/* Stars */}
-                        <div className="flex mb-2">
-                          {[1,2,3,4,5].map((s) => (
-                            <Star key={s} className={`h-3 w-3 fill-current ${s <= r.stars ? "text-yellow-400" : "text-gray-200"}`} />
-                          ))}
-                        </div>
-                        {/* Review text */}
-                        {r.text && <p className="text-xs text-gray-500 leading-relaxed line-clamp-3 mb-3">{r.text}</p>}
-                        {/* Reviewer */}
-                        <div className="flex items-center gap-2 pt-2 border-t border-gray-100">
-                          <div className="w-6 h-6 rounded-full bg-gray-100 shrink-0 overflow-hidden flex items-center justify-center text-[10px] font-bold text-gray-400">
-                            {profile?.avatar_url
-                              /* eslint-disable-next-line @next/next/no-img-element */
-                              ? <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
-                              : profile?.name?.charAt(0) ?? "?"}
-                          </div>
-                          <p className="text-xs font-semibold text-gray-700">{profile?.name ?? (lang === "ja" ? "匿名" : lang === "en" ? "Anonymous" : "익명")}</p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              <CorkBoard
+                reviews={reviews}
+                lang={lang}
+                emptyMessage={lang === "ja" ? "まだレビューはありません" : lang === "ko" ? "아직 등록된 리뷰가 없어요" : "No reviews yet"}
+              />
             )}
           </div>
         </section>

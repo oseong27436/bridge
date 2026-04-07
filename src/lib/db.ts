@@ -75,7 +75,9 @@ export interface DbReview {
   user_id: string;
   stars: number;
   text: string | null;
-  featured: boolean;
+  note_color: "yellow" | "green" | "pink";
+  note_x: number | null;
+  note_y: number | null;
   created_at: string;
   event?: DbEvent;
   profile?: DbProfile;
@@ -177,10 +179,8 @@ export async function getReviews(): Promise<DbReview[]> {
   const supabase = createClient();
   const { data } = await supabase
     .from("bridge_reviews")
-    .select("*, event:bridge_events!event_id(title_ko,title_ja,title_en,image_url,category,date,time_start,time_end,location_ko,location_ja,location_en), profile:bridge_profiles!bridge_reviews_user_id_profiles_fkey(name,avatar_url)")
-    .eq("featured", true)
-    .order("created_at", { ascending: false })
-    .limit(8);
+    .select("*, event:bridge_events!event_id(title_ko,title_ja,title_en,date), profile:bridge_profiles!bridge_reviews_user_id_profiles_fkey(name,avatar_url)")
+    .order("created_at", { ascending: false });
   return data ?? [];
 }
 
@@ -188,18 +188,7 @@ export async function getAllReviews(): Promise<DbReview[]> {
   const supabase = createClient();
   const { data } = await supabase
     .from("bridge_reviews")
-    .select("*, image_urls, event:bridge_events!event_id(title_ko,title_ja,title_en), profile:bridge_profiles!bridge_reviews_user_id_profiles_fkey(name,avatar_url)")
-    .order("created_at", { ascending: false });
-  return data ?? [];
-}
-
-export async function getEventReviews(eventId: string): Promise<DbReview[]> {
-  const supabase = createClient();
-  const { data } = await supabase
-    .from("bridge_reviews")
-    .select("*, image_urls, profile:bridge_profiles!bridge_reviews_user_id_profiles_fkey(name,avatar_url)")
-    .eq("event_id", eventId)
-    .eq("featured", true)
+    .select("*, event:bridge_events!event_id(title_ko,title_ja,title_en), profile:bridge_profiles!bridge_reviews_user_id_profiles_fkey(name,avatar_url)")
     .order("created_at", { ascending: false });
   return data ?? [];
 }

@@ -54,7 +54,6 @@ export default function Header() {
   const NAV_LINKS = [
     { href: "/", label: tr.nav_home },
     { href: "/events", label: tr.nav_events },
-    { href: "/reviews", label: tr.nav_reviews },
   ];
 
   return (

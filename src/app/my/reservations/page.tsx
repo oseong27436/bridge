@@ -35,9 +35,26 @@ function StarPicker({ value, onChange }: { value: number; onChange: (v: number) 
   );
 }
 
+type NoteColor = "yellow" | "green" | "pink";
+
+const NOTE_COLOR_STYLES: Record<NoteColor, { bg: string; label: string }> = {
+  yellow: { bg: "#FEF08A", label: "🟡" },
+  green:  { bg: "#BBF7D0", label: "🟢" },
+  pink:   { bg: "#FBCFE8", label: "🩷" },
+};
+
+const BOARD_W = 1400;
+const BOARD_H = 900;
+const NOTE_W = 180;
+const NOTE_H = 160;
+
 interface ReviewFormState {
   eventStars: number;
   eventText: string;
+  noteColor: NoteColor;
+  noteX: number;
+  noteY: number;
+  placingMode: boolean;
   submitting: boolean;
   done: boolean;
 }
@@ -86,7 +103,12 @@ export default function ReservationsPage() {
 
   function getForm(eventId: string): ReviewFormState {
     return reviewForms[eventId] ?? {
-      eventStars: 0, eventText: "", submitting: false, done: false,
+      eventStars: 0, eventText: "",
+      noteColor: "yellow",
+      noteX: Math.floor(Math.random() * (BOARD_W - NOTE_W - 100)) + 50,
+      noteY: Math.floor(Math.random() * (BOARD_H - NOTE_H - 100)) + 50,
+      placingMode: false,
+      submitting: false, done: false,
     };
   }
 
@@ -109,6 +131,9 @@ export default function ReservationsPage() {
       user_id: user.id,
       stars: form.eventStars,
       text: form.eventText || null,
+      note_color: form.noteColor,
+      note_x: form.noteX,
+      note_y: form.noteY,
     });
 
     setReviewedEventIds((prev) => new Set([...prev, reg.event_id]));
@@ -282,12 +307,68 @@ export default function ReservationsPage() {
                               </button>
                             </div>
 
+                            {/* 별점 + 텍스트 */}
                             <div>
                               <StarPicker value={form.eventStars} onChange={(v) => setForm(reg.event_id, { eventStars: v })} />
                               <textarea rows={3} value={form.eventText}
                                 onChange={(e) => setForm(reg.event_id, { eventText: e.target.value })}
                                 placeholder={tr.review_placeholder}
                                 className="mt-3 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 resize-none" />
+                            </div>
+
+                            {/* 포스트잇 색상 선택 */}
+                            <div>
+                              <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
+                                {lang === "ja" ? "付箋の色" : lang === "ko" ? "포스트잇 색상" : "Note Color"}
+                              </p>
+                              <div className="flex gap-2">
+                                {(Object.entries(NOTE_COLOR_STYLES) as [NoteColor, { bg: string; label: string }][]).map(([color, style]) => (
+                                  <button key={color} type="button"
+                                    onClick={() => setForm(reg.event_id, { noteColor: color })}
+                                    className={`w-9 h-9 rounded-lg border-2 transition-all ${form.noteColor === color ? "border-gray-600 scale-110" : "border-transparent"}`}
+                                    style={{ backgroundColor: style.bg }}
+                                    title={color}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* 위치 배치 */}
+                            <div>
+                              <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
+                                {lang === "ja" ? "貼る場所" : lang === "ko" ? "붙일 위치" : "Place on Board"}
+                              </p>
+                              <div
+                                className="relative rounded-xl overflow-hidden cursor-crosshair"
+                                style={{ width: "100%", aspectRatio: `${BOARD_W}/${BOARD_H}`, backgroundColor: "#c19a6b" }}
+                                onClick={(e) => {
+                                  const rect = e.currentTarget.getBoundingClientRect();
+                                  const scaleX = BOARD_W / rect.width;
+                                  const scaleY = BOARD_H / rect.height;
+                                  const x = Math.round((e.clientX - rect.left) * scaleX - NOTE_W / 2);
+                                  const y = Math.round((e.clientY - rect.top) * scaleY - NOTE_H / 2);
+                                  setForm(reg.event_id, {
+                                    noteX: Math.max(0, Math.min(x, BOARD_W - NOTE_W)),
+                                    noteY: Math.max(0, Math.min(y, BOARD_H - NOTE_H)),
+                                  });
+                                }}
+                              >
+                                {/* 포스트잇 미리보기 */}
+                                <div
+                                  className="absolute rounded-sm pointer-events-none"
+                                  style={{
+                                    left: `${(form.noteX / BOARD_W) * 100}%`,
+                                    top: `${(form.noteY / BOARD_H) * 100}%`,
+                                    width: `${(NOTE_W / BOARD_W) * 100}%`,
+                                    aspectRatio: `${NOTE_W}/${NOTE_H}`,
+                                    backgroundColor: NOTE_COLOR_STYLES[form.noteColor].bg,
+                                    boxShadow: "2px 3px 8px rgba(0,0,0,0.2)",
+                                  }}
+                                />
+                              </div>
+                              <p className="text-[11px] text-gray-400 mt-1.5">
+                                {lang === "ja" ? "クリックして場所を決める" : lang === "ko" ? "클릭해서 위치를 정해요" : "Click to place your note"}
+                              </p>
                             </div>
 
                             <button
