@@ -27,6 +27,15 @@ function toDateStr(y: number, m: number, d: number) {
   return `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
+const CATEGORY_EMOJI: Record<string, string> = {
+  all: "🗓",
+  meetup: "🗣",
+  party: "🎉",
+  sports: "⚽",
+  food: "🍜",
+  culture: "🎨",
+};
+
 export default function EventsPage() {
   const { lang } = useLanguage();
   const tr = translations[lang];
@@ -35,7 +44,6 @@ export default function EventsPage() {
   const [loading, setLoading] = useState(true);
   const [eventsImage, setEventsImage] = useState("https://images.unsplash.com/photo-1514190051997-0f6f39ca5cde?w=1600&q=80");
   const [userId, setUserId] = useState<string | null>(null);
-  // Set of event IDs the user has a non-cancelled registration for
   const [registeredIds, setRegisteredIds] = useState<Set<string>>(new Set());
   const [applyingId, setApplyingId] = useState<string | null>(null);
 
@@ -48,8 +56,6 @@ export default function EventsPage() {
   useEffect(() => {
     getEvents().then((data) => { setEvents(data); setLoading(false); });
     getSettings().then((cfg) => { if (cfg.events_image) setEventsImage(cfg.events_image); });
-
-    // Load current user + their registrations
     const supabase = createClient();
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session) return;
@@ -64,14 +70,10 @@ export default function EventsPage() {
   }, []);
 
   async function handleRegister(event: DbEvent) {
-    if (!userId) {
-      window.location.href = "/auth/login";
-      return;
-    }
+    if (!userId) { window.location.href = "/auth/login"; return; }
     if (registeredIds.has(event.id)) return;
     setApplyingId(event.id);
-    const supabase = createClient();
-    await supabase.from("bridge_registrations").insert({
+    await createClient().from("bridge_registrations").insert({
       event_id: event.id,
       user_id: userId,
       status: "pending",
@@ -119,7 +121,7 @@ export default function EventsPage() {
       <Header />
       <main className="flex-1">
 
-        {/* ── HERO ──────────────────────────────────────────────────── */}
+        {/* HERO */}
         <section className="relative h-48 sm:h-64 overflow-hidden">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={eventsImage} alt="" className="absolute inset-0 h-full w-full object-cover" />
@@ -135,185 +137,219 @@ export default function EventsPage() {
         </section>
 
         <div className="mx-auto max-w-6xl px-4 sm:px-6 py-6">
+          <div className="flex flex-col lg:flex-row gap-6">
 
-          {/* ── CALENDAR ──────────────────────────────────────────── */}
-          <div className="bg-white rounded-xl border border-gray-200 p-4 mb-5">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-bold text-gray-900">
-                {months[calMonth]} {calYear}
-              </h2>
-              <div className="flex gap-1">
-                <button onClick={prevMonth} className="h-8 w-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:border-primary hover:text-primary transition-colors">
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <button onClick={nextMonth} className="h-8 w-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:border-primary hover:text-primary transition-colors">
-                  <ChevronRight className="h-4 w-4" />
-                </button>
+            {/* ── LEFT: Calendar + Filters ── */}
+            <div className="lg:w-72 xl:w-80 shrink-0">
+              <div className="lg:sticky lg:top-6 space-y-4">
+
+                {/* Calendar */}
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+                  {/* Month nav */}
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-base font-bold text-gray-900">
+                      {months[calMonth]} {calYear}
+                    </h2>
+                    <div className="flex gap-1">
+                      <button onClick={prevMonth} className="h-8 w-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:border-primary hover:text-primary transition-colors">
+                        <ChevronLeft className="h-4 w-4" />
+                      </button>
+                      <button onClick={nextMonth} className="h-8 w-8 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:border-primary hover:text-primary transition-colors">
+                        <ChevronRight className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Day labels */}
+                  <div className="grid grid-cols-7 mb-1">
+                    {days.map((d: string) => (
+                      <div key={d} className="text-center text-[11px] font-semibold text-gray-400 py-1">{d}</div>
+                    ))}
+                  </div>
+
+                  {/* Grid */}
+                  <div className="grid grid-cols-7 gap-1">
+                    {calendarDays.map((cell, i) => {
+                      if (!cell.current) return (
+                        <div key={i} className="aspect-square flex items-center justify-center text-xs text-gray-200">{cell.day}</div>
+                      );
+                      const dateStr = toDateStr(calYear, calMonth, cell.day);
+                      const hasEvent = eventDates.has(dateStr);
+                      const isToday = dateStr === todayStr;
+                      const isSelected = dateStr === selectedDate;
+
+                      return (
+                        <button
+                          key={i}
+                          onClick={() => hasEvent && setSelectedDate(isSelected ? null : dateStr)}
+                          className={`
+                            aspect-square flex items-center justify-center rounded-xl text-sm font-semibold transition-all
+                            ${isSelected ? "bg-primary text-white shadow-md scale-105" : ""}
+                            ${!isSelected && hasEvent ? "bg-primary/15 text-primary hover:bg-primary/25 cursor-pointer" : ""}
+                            ${!isSelected && isToday && !hasEvent ? "ring-2 ring-primary text-primary" : ""}
+                            ${!isSelected && !hasEvent && !isToday ? "text-gray-500 cursor-default" : ""}
+                          `}
+                        >
+                          {cell.day}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {selectedDate && (
+                    <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
+                      <p className="text-xs text-gray-500">
+                        {new Date(selectedDate + "T00:00:00").toLocaleDateString(
+                          lang === "ja" ? "ja-JP" : lang === "ko" ? "ko-KR" : "en-US",
+                          { month: "short", day: "numeric", weekday: "short" }
+                        )}
+                      </p>
+                      <button onClick={() => setSelectedDate(null)} className="text-xs text-primary hover:underline">{tr.clear}</button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Category filters */}
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-3">Category</p>
+                  <div className="flex flex-col gap-1.5">
+                    {CATEGORY_FILTERS.map((f) => (
+                      <button
+                        key={f.value}
+                        onClick={() => setCategory(f.value as EventCategory | "all")}
+                        className={`flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors text-left ${
+                          category === f.value
+                            ? "bg-primary/10 text-primary"
+                            : "text-gray-600 hover:bg-gray-50"
+                        }`}
+                      >
+                        <span className="text-base">{CATEGORY_EMOJI[f.value]}</span>
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
               </div>
             </div>
 
-            {/* Day labels */}
-            <div className="grid grid-cols-7 mb-1">
-              {days.map((d: string) => (
-                <div key={d} className="text-center text-xs font-semibold text-gray-400 py-1">{d}</div>
-              ))}
-            </div>
-
-            {/* Grid */}
-            <div className="grid grid-cols-7 gap-0.5">
-              {calendarDays.map((cell, i) => {
-                if (!cell.current) return (
-                  <div key={i} className="aspect-square flex items-center justify-center text-xs text-gray-200">{cell.day}</div>
-                );
-                const dateStr = toDateStr(calYear, calMonth, cell.day);
-                const hasEvent = eventDates.has(dateStr);
-                const isToday = dateStr === todayStr;
-                const isSelected = dateStr === selectedDate;
-                return (
+            {/* ── RIGHT: Event List ── */}
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-sm text-gray-500">
+                  <strong className="text-gray-800">{filteredEvents.length}</strong>{" "}{tr.events_found}
+                </p>
+                {(selectedDate || category !== "all") && (
                   <button
-                    key={i}
-                    onClick={() => hasEvent && setSelectedDate(isSelected ? null : dateStr)}
-                    className={`relative aspect-square flex flex-col items-center justify-center rounded-lg text-sm transition-colors
-                      ${isSelected ? "bg-primary text-white font-bold" : ""}
-                      ${!isSelected && isToday ? "ring-2 ring-primary text-primary font-semibold" : ""}
-                      ${!isSelected && !isToday && hasEvent ? "text-primary font-semibold hover:bg-orange-50 cursor-pointer" : ""}
-                      ${!isSelected && !isToday && !hasEvent ? "text-gray-700 cursor-default" : ""}
-                    `}
+                    onClick={() => { setCategory("all"); setSelectedDate(null); }}
+                    className="text-xs text-primary hover:underline"
                   >
-                    {cell.day}
-                    {hasEvent && !isSelected && (
-                      <span className="absolute bottom-1 left-1/2 -translate-x-1/2 h-1 w-1 rounded-full bg-primary" />
-                    )}
+                    {tr.clear}
                   </button>
-                );
-              })}
-            </div>
-
-            {selectedDate && (
-              <p className="mt-3 text-xs text-gray-500 text-center">
-                {new Date(selectedDate + "T00:00:00").toLocaleDateString(
-                  lang === "ja" ? "ja-JP" : lang === "ko" ? "ko-KR" : "en-US",
-                  { weekday: "long", month: "long", day: "numeric" }
                 )}
-                {" · "}
-                <button onClick={() => setSelectedDate(null)} className="text-primary hover:underline">{tr.clear}</button>
-              </p>
-            )}
-          </div>
+              </div>
 
-          {/* ── CATEGORY FILTERS ────────────────────────────────── */}
-          <div className="flex flex-wrap gap-2 mb-4">
-            {CATEGORY_FILTERS.map((f) => (
-              <button
-                key={f.value}
-                onClick={() => setCategory(f.value as EventCategory | "all")}
-                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  category === f.value
-                    ? "bg-primary border-primary text-white"
-                    : "border-gray-300 bg-white text-gray-600 hover:border-primary hover:text-primary"
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-
-          {/* ── EVENT COUNT ─────────────────────────────────────── */}
-          <p className="text-sm text-gray-500 mb-3">
-            <strong className="text-gray-800">{filteredEvents.length}</strong>{" "}
-            {tr.events_found}
-          </p>
-
-          {/* ── EVENT LIST ──────────────────────────────────────── */}
-          {loading ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="flex gap-4 rounded-xl border border-gray-200 bg-white p-4 animate-pulse">
-                  <div className="w-24 sm:w-32 shrink-0 aspect-square rounded-lg bg-gray-100" />
-                  <div className="flex-1 space-y-2 py-1">
-                    <div className="h-3 bg-gray-100 rounded w-1/4" />
-                    <div className="h-4 bg-gray-100 rounded w-3/4" />
-                    <div className="h-3 bg-gray-100 rounded w-1/2" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : filteredEvents.length > 0 ? (
-            <div className="space-y-3">
-              {filteredEvents.map((event) => {
-                const isRegistered = registeredIds.has(event.id);
-                const isApplying = applyingId === event.id;
-                return (
-                <div
-                  key={event.id}
-                  className="rounded-xl border border-gray-200 bg-white hover:shadow-md transition-shadow overflow-hidden"
-                >
-                  <Link href={`/events/${event.id}`} className="group flex gap-4 p-4 block">
-                    <div className="w-24 sm:w-32 shrink-0 aspect-square rounded-lg overflow-hidden bg-gray-100">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={event.image_url} alt={eventTitle(event, lang)} className="h-full w-full object-cover" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap gap-1 mb-1.5">
-                        <span className="rounded text-[10px] font-bold bg-orange-100 text-orange-600 px-1.5 py-0.5">
-                          {tr[`cat_${event.category}` as keyof typeof tr] ?? event.category}
-                        </span>
-                        <span className="rounded text-[10px] font-bold bg-gray-100 text-gray-500 px-1.5 py-0.5">
-                          {eventLocation(event, lang).split("（")[0].split("(")[0].trim()}
-                        </span>
+              {loading ? (
+                <div className="space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex gap-4 rounded-2xl border border-gray-100 bg-white p-4 animate-pulse">
+                      <div className="w-28 shrink-0 aspect-square rounded-xl bg-gray-100" />
+                      <div className="flex-1 space-y-2 py-1">
+                        <div className="h-3 bg-gray-100 rounded w-1/4" />
+                        <div className="h-4 bg-gray-100 rounded w-3/4" />
+                        <div className="h-3 bg-gray-100 rounded w-1/2" />
                       </div>
-                      <h3 className="text-sm sm:text-base font-bold text-gray-900 group-hover:text-primary transition-colors leading-snug mb-1">
-                        {eventTitle(event, lang)}
-                      </h3>
-                      <p className="text-xs text-gray-500">
-                        {new Date(event.date + "T00:00:00").toLocaleDateString(
-                          lang === "ja" ? "ja-JP" : lang === "ko" ? "ko-KR" : "en-US",
-                          { month: "numeric", day: "numeric", weekday: "short" }
-                        )}
-                        {event.time_end
-                          ? ` · ${event.time_start}〜${event.time_end}`
-                          : ` · ${event.time_start}〜`}
-                      </p>
-                      <p className="text-xs text-gray-400 mt-0.5">📍 {eventLocation(event, lang)}</p>
                     </div>
-                  </Link>
-                  {/* Register strip */}
-                  <div className="border-t border-gray-100 px-4 py-2.5 flex items-center justify-between">
-                    {event.capacity !== null ? (
-                      <p className="text-xs text-gray-500">
-                        <span className="font-semibold text-gray-700">{tr.going}</span> / {event.capacity}{tr.spots}
-                      </p>
-                    ) : <span />}
-                    <button
-                      onClick={() => handleRegister(event)}
-                      disabled={isRegistered || isApplying}
-                      className={`rounded-full px-4 py-1.5 text-xs font-bold transition-colors ${
-                        isRegistered
-                          ? "bg-green-100 text-green-700 cursor-default"
-                          : "bg-primary text-white hover:bg-primary/90 disabled:opacity-60"
-                      }`}
-                    >
-                      {isApplying ? tr.reg_applying : isRegistered ? `✓ ${tr.reg_applied}` : tr.reg_apply}
-                    </button>
-                  </div>
+                  ))}
                 </div>
-                );
-              })}
+              ) : filteredEvents.length > 0 ? (
+                <div className="space-y-3">
+                  {filteredEvents.map((event) => {
+                    const isRegistered = registeredIds.has(event.id);
+                    const isApplying = applyingId === event.id;
+                    return (
+                      <div
+                        key={event.id}
+                        className="rounded-2xl border border-gray-100 bg-white shadow-sm hover:shadow-md transition-shadow overflow-hidden flex gap-0"
+                      >
+                        {/* Image */}
+                        <Link href={`/events/${event.id}`} className="shrink-0 w-28 sm:w-36">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={event.image_url}
+                            alt={eventTitle(event, lang)}
+                            className="h-full w-full object-cover"
+                          />
+                        </Link>
+
+                        {/* Content */}
+                        <div className="flex-1 min-w-0 p-4 flex flex-col justify-between">
+                          <div>
+                            <div className="flex flex-wrap gap-1.5 mb-2">
+                              <span className="rounded-full text-[11px] font-bold bg-primary/10 text-primary px-2.5 py-0.5">
+                                {CATEGORY_EMOJI[event.category]} {tr[`cat_${event.category}` as keyof typeof tr] ?? event.category}
+                              </span>
+                              <span className="rounded-full text-[11px] font-semibold bg-gray-100 text-gray-500 px-2.5 py-0.5">
+                                📍 {eventLocation(event, lang).split("（")[0].split("(")[0].trim()}
+                              </span>
+                            </div>
+                            <Link href={`/events/${event.id}`}>
+                              <h3 className="text-sm sm:text-base font-bold text-gray-900 hover:text-primary transition-colors leading-snug mb-1.5">
+                                {eventTitle(event, lang)}
+                              </h3>
+                            </Link>
+                            <p className="text-xs text-gray-500">
+                              🗓 {new Date(event.date + "T00:00:00").toLocaleDateString(
+                                lang === "ja" ? "ja-JP" : lang === "ko" ? "ko-KR" : "en-US",
+                                { month: "numeric", day: "numeric", weekday: "short" }
+                              )}
+                              {event.time_end
+                                ? ` · ${event.time_start}〜${event.time_end}`
+                                : ` · ${event.time_start}〜`}
+                            </p>
+                          </div>
+
+                          {/* Bottom row: capacity + register */}
+                          <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-50">
+                            {event.capacity !== null ? (
+                              <p className="text-xs text-gray-400">
+                                {tr.going} / <span className="font-semibold text-gray-600">{event.capacity}{tr.spots}</span>
+                              </p>
+                            ) : <span />}
+                            <button
+                              onClick={() => handleRegister(event)}
+                              disabled={isRegistered || isApplying}
+                              className={`rounded-full px-4 py-1.5 text-xs font-bold transition-colors ${
+                                isRegistered
+                                  ? "bg-green-100 text-green-700 cursor-default"
+                                  : "bg-primary text-white hover:bg-primary/90 disabled:opacity-60"
+                              }`}
+                            >
+                              {isApplying ? tr.reg_applying : isRegistered ? `✓ ${tr.reg_applied}` : tr.reg_apply}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-center py-20 text-gray-400">
+                  <div className="text-4xl mb-3">📅</div>
+                  <p className="text-sm font-medium text-gray-500">
+                    {lang === "ja" ? "イベントがありません" : lang === "ko" ? "이벤트가 없습니다" : "No events found"}
+                  </p>
+                  <button
+                    onClick={() => { setCategory("all"); setSelectedDate(null); }}
+                    className="mt-3 text-xs text-primary hover:underline"
+                  >
+                    {tr.clear}
+                  </button>
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="text-center py-16 text-gray-400">
-              <div className="text-4xl mb-3">📅</div>
-              <p className="text-sm font-medium text-gray-500">
-                {lang === "ja" ? "イベントがありません" : lang === "ko" ? "이벤트가 없습니다" : "No events found"}
-              </p>
-              <button
-                onClick={() => { setCategory("all"); setSelectedDate(null); }}
-                className="mt-3 text-xs text-primary hover:underline"
-              >
-                {tr.clear}
-              </button>
-            </div>
-          )}
+
+          </div>
         </div>
       </main>
       <Footer />
