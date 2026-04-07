@@ -227,41 +227,34 @@ export default function HomePage() {
         {/* ── REVIEWS (코르크보드) ───────────────────────────────────── */}
         <section className="bg-[#b5854a]/20 border-y border-[#b5854a]/30">
           <div className="mx-auto max-w-6xl px-4 sm:px-6 py-12">
-            <div className="flex items-center justify-between gap-6 mb-6 flex-wrap">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-1">
-                  {lang === "ja" ? "みんなのレビュー" : lang === "ko" ? "모두의 리뷰" : "Community Reviews"}
-                </h2>
-                {/* 안내 문구 두 줄 */}
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                {lang === "ja" ? "みんなのレビュー" : lang === "ko" ? "모두의 리뷰" : "Community Reviews"}
+              </h2>
+              <div className="flex items-center gap-4">
                 <p className="text-sm text-gray-500 leading-relaxed">
                   ブリッジの思い出を貼ってください！<br />
                   Leave your Bridge memory here.
                 </p>
-              </div>
-
-              {/* Post-it CTA button */}
-              <button
-                onClick={async () => {
-                  const { data: { session } } = await createClient().auth.getSession();
-                  router.push(session ? "/my/reservations" : "/auth/login");
-                }}
-                className="relative select-none cursor-pointer transition-all duration-200 hover:-translate-y-1 hover:scale-105 hover:animate-wiggle shrink-0"
-                style={{ width: 130 }}
-              >
-                <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 z-10 w-4 h-4 rounded-full bg-gray-500 border-2 border-gray-400 flex items-center justify-center">
-                  <div className="w-1.5 h-1.5 rounded-full bg-gray-300" />
-                </div>
-                <div
-                  className="pt-4 px-3 pb-3 rounded-sm text-center"
-                  style={{
-                    backgroundColor: "#FEF08A",
-                    boxShadow: "2px 4px 12px rgba(202,138,4,0.3), 0 1px 3px rgba(0,0,0,0.1)",
+                {/* 심플 포스트잇 버튼 */}
+                <button
+                  onClick={async () => {
+                    const { data: { session } } = await createClient().auth.getSession();
+                    router.push(session ? "/my/reservations" : "/auth/login");
                   }}
+                  className="relative select-none cursor-pointer transition-all duration-200 hover:-translate-y-1 hover:scale-105 hover:animate-wiggle shrink-0"
+                  style={{ width: 64, height: 64 }}
                 >
-                  <p className="text-[11px] font-bold text-gray-700 leading-snug">✍️ レビューを書く</p>
-                  <p className="text-[10px] text-gray-500 mt-0.5">Write a review</p>
-                </div>
-              </button>
+                  <div className="absolute -top-2 left-1/2 -translate-x-1/2 z-10 w-3.5 h-3.5 rounded-full bg-gray-500 border-2 border-gray-400" />
+                  <div
+                    className="w-full h-full rounded-sm"
+                    style={{
+                      backgroundColor: "#FEF08A",
+                      boxShadow: "2px 4px 10px rgba(202,138,4,0.3), 0 1px 3px rgba(0,0,0,0.1)",
+                    }}
+                  />
+                </button>
+              </div>
             </div>
             {loading ? (
               <div className="h-64 rounded-2xl bg-[#c19a6b]/40 animate-pulse" />
