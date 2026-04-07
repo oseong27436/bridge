@@ -122,14 +122,15 @@ export default function CorkBoard({ reviews, lang, onDelete, emptyMessage }: Cor
   const pinch = useRef<{ dist: number; midX: number; midY: number; tx: number; ty: number; scale: number } | null>(null);
   const minScaleRef = useRef(MIN_SCALE);
 
-  // Init: fit board to container, set min scale dynamically
+  // Init: fill width on load, min scale = fit entire board
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const { width, height } = el.getBoundingClientRect();
-    const s = Math.min(width / BOARD_W, height / BOARD_H, 1);
-    minScaleRef.current = s; // can't zoom out past fit-to-screen
-    setView({ scale: s, tx: (width - BOARD_W * s) / 2, ty: (height - BOARD_H * s) / 2 });
+    const fitAll = Math.min(width / BOARD_W, height / BOARD_H);
+    const s = width / BOARD_W; // fill container width
+    minScaleRef.current = fitAll; // can't zoom out past fit-all
+    setView({ scale: s, tx: 0, ty: (height - BOARD_H * s) / 2 });
   }, []);
 
   // Wheel zoom
