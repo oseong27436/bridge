@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase";
-import { getHosts, getEventImages, type DbEvent, type DbHost } from "@/lib/db";
+import { getEventImages, type DbEvent } from "@/lib/db";
 import { useLanguage } from "@/context/language-context";
 import { translations } from "@/lib/i18n";
 import { ChevronDown, ChevronUp, Users, Banknote, MapPin, Calendar, X } from "lucide-react";
@@ -39,7 +39,6 @@ const EMPTY_FORM = {
   capacity: "",
   fee_type: "free",
   fee_amount: "",
-  host_id: "",
   open_chat_url: "",
   open_chat_qr_url: "",
 };
@@ -113,7 +112,6 @@ export default function AdminEventsPage() {
   const tr = translations[lang];
 
   const [events, setEvents] = useState<DbEvent[]>([]);
-  const [hosts, setHosts] = useState<DbHost[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -150,7 +148,7 @@ export default function AdminEventsPage() {
     }
   }
 
-  useEffect(() => { load(); getHosts().then(setHosts); }, []);
+  useEffect(() => { load(); }, []);
 
   async function loadRegistrations(eventId: string) {
     if (registrations[eventId]) return;
@@ -254,7 +252,6 @@ export default function AdminEventsPage() {
       capacity: e.capacity?.toString() ?? "",
       fee_type: e.fee_type ?? "free",
       fee_amount: e.fee_amount?.toString() ?? "",
-      host_id: e.host_id ?? "",
       open_chat_url: (e as DbEvent & { open_chat_url?: string }).open_chat_url ?? "",
       open_chat_qr_url: (e as DbEvent & { open_chat_qr_url?: string }).open_chat_qr_url ?? "",
     });
@@ -328,7 +325,6 @@ export default function AdminEventsPage() {
       capacity: form.capacity ? parseInt(form.capacity) : null,
       fee_type: form.fee_type,
       fee_amount: form.fee_type === "paid" && form.fee_amount ? parseInt(form.fee_amount) : null,
-      host_id: form.host_id || null,
       open_chat_url: form.open_chat_url || null,
       open_chat_qr_url: form.open_chat_qr_url || null,
     };
@@ -400,15 +396,7 @@ export default function AdminEventsPage() {
             <div className="flex-1 overflow-y-auto px-5 py-4 space-y-1">
 
               <SectionLabel>{lang === "ja" ? "基本情報" : lang === "ko" ? "기본 정보" : "Basic Info"}</SectionLabel>
-              <Select label={tr.field_host} name="host_id"
-                options={[
-                  { value: "", label: lang === "ja" ? "ホスト選択（任意）" : lang === "ko" ? "호스트 선택 (선택)" : "Select host (optional)" },
-                  ...hosts.map((h) => ({ value: h.id, label: h.name })),
-                ]}
-                form={form} setForm={setForm} />
-              <div className="pt-2">
-                <Field label={tr.field_title} name="title" form={form} setForm={setForm} />
-              </div>
+              <Field label={tr.field_title} name="title" form={form} setForm={setForm} />
               <div className="pt-2">
                 <Field label={tr.field_description} name="description" textarea form={form} setForm={setForm} />
               </div>

@@ -21,22 +21,8 @@ export interface DbEvent {
   capacity: number | null;
   fee_type: "free" | "paid" | "tba";
   fee_amount: number | null;
-  host_id: string | null;
   created_by: string | null;
   created_at: string;
-}
-
-export interface DbHostReview {
-  id: string;
-  host_id: string;
-  user_id: string;
-  event_id: string | null;
-  stars: number;
-  text: string | null;
-  featured: boolean;
-  created_at: string;
-  host?: DbHost;
-  profile?: DbProfile;
 }
 
 export interface DbHost {
@@ -48,8 +34,6 @@ export interface DbHost {
   bio_ja: string;
   bio_ko: string;
   bio_en: string;
-  stars: number;
-  review_count: number;
   sort_order: number;
 }
 
@@ -220,21 +204,6 @@ export async function getEventReviews(eventId: string): Promise<DbReview[]> {
   return data ?? [];
 }
 
-export interface DbHostReviewWithProfile extends DbHostReview {
-  profile: { name?: string; avatar_url?: string } | null;
-}
-
-export async function getHostReviews(hostId: string): Promise<DbHostReviewWithProfile[]> {
-  const supabase = createClient();
-  const { data } = await supabase
-    .from("bridge_host_reviews")
-    .select("*, profile:bridge_profiles!bridge_host_reviews_user_id_profiles_fkey(name,avatar_url)")
-    .eq("host_id", hostId)
-    .eq("featured", true)
-    .order("created_at", { ascending: false });
-  return (data ?? []) as DbHostReviewWithProfile[];
-}
-
 export interface DbEventImage {
   id: string;
   event_id: string;
@@ -250,39 +219,6 @@ export async function getEventImages(eventId: string): Promise<DbEventImage[]> {
     .eq("event_id", eventId)
     .order("sort_order", { ascending: true });
   return data ?? [];
-}
-
-export async function getAllHostReviews(): Promise<DbHostReview[]> {
-  const supabase = createClient();
-  const { data } = await supabase
-    .from("bridge_host_reviews")
-    .select("*, host:bridge_hosts!host_id(name,avatar_url), profile:bridge_profiles!bridge_host_reviews_user_id_profiles_fkey(name,avatar_url)")
-    .order("created_at", { ascending: false });
-  return data ?? [];
-}
-
-export interface DbHostStats {
-  host_id: string;
-  avg_stars: number;
-  review_count: number;
-}
-
-export async function getHostStats(): Promise<Record<string, DbHostStats>> {
-  const supabase = createClient();
-  const { data } = await supabase
-    .from("bridge_host_reviews")
-    .select("host_id, stars")
-    .eq("featured", true);
-  const map: Record<string, DbHostStats> = {};
-  for (const r of data ?? []) {
-    if (!map[r.host_id]) map[r.host_id] = { host_id: r.host_id, avg_stars: 0, review_count: 0 };
-    map[r.host_id].review_count++;
-    map[r.host_id].avg_stars += r.stars;
-  }
-  for (const key of Object.keys(map)) {
-    map[key].avg_stars = Math.round((map[key].avg_stars / map[key].review_count) * 10) / 10;
-  }
-  return map;
 }
 
 export function eventTitle(e: DbEvent, lang: string) {

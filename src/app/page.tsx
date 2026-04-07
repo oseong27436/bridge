@@ -6,7 +6,7 @@ import { useLanguage } from "@/context/language-context";
 import { translations } from "@/lib/i18n";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
-import { getEvents, getHosts, getGallery, getReviews, getSettings, getHostStats, getHostReviews, eventTitle, eventDesc, hostBio, type DbEvent, type DbHost, type DbGallery, type DbReview, type DbHostReviewWithProfile } from "@/lib/db";
+import { getEvents, getHosts, getGallery, getReviews, getSettings, eventTitle, eventDesc, hostBio, type DbEvent, type DbHost, type DbGallery, type DbReview } from "@/lib/db";
 import { Star } from "lucide-react";
 
 const LANG_FILTERS = ["日本語", "한국어", "English", "中文"];
@@ -46,21 +46,16 @@ export default function HomePage() {
   const [hosts, setHosts] = useState<DbHost[]>([]);
   const [gallery, setGallery] = useState<DbGallery[]>([]);
   const [reviews, setReviews] = useState<DbReview[]>([]);
-  const [hostStats, setHostStats] = useState<Record<string, { avg_stars: number; review_count: number }>>({});
   const [siteImgs, setSiteImgs] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
-  const [selectedHost, setSelectedHost] = useState<DbHost | null>(null);
-  const [hostReviews, setHostReviews] = useState<DbHostReviewWithProfile[]>([]);
-  const [hostReviewsLoading, setHostReviewsLoading] = useState(false);
 
   useEffect(() => {
-    Promise.all([getEvents(), getHosts(), getGallery(), getReviews(), getSettings(), getHostStats()]).then(
-      ([ev, ho, ga, rv, cfg, hs]) => {
+    Promise.all([getEvents(), getHosts(), getGallery(), getReviews(), getSettings()]).then(
+      ([ev, ho, ga, rv, cfg]) => {
         setEvents(ev);
         setHosts(ho);
         setGallery(ga);
         setReviews(rv);
-        setHostStats(hs);
         setSiteImgs({
           hero:    cfg.hero_image    || FALLBACK_IMGS.hero,
           meetup:  cfg.meetup_image  || FALLBACK_IMGS.meetup,
@@ -74,15 +69,6 @@ export default function HomePage() {
       }
     );
   }, []);
-
-  async function openHostModal(host: DbHost) {
-    setSelectedHost(host);
-    setHostReviews([]);
-    setHostReviewsLoading(true);
-    const reviews = await getHostReviews(host.id);
-    setHostReviews(reviews);
-    setHostReviewsLoading(false);
-  }
 
   const CATEGORY_FILTERS = [tr.cat_meetup, tr.cat_party, tr.cat_sports, tr.cat_food, tr.cat_culture];
 
@@ -316,43 +302,28 @@ export default function HomePage() {
             <EmptyState icon="👋" message={lang === "ja" ? "ホストはまだいません" : lang === "ko" ? "아직 등록된 호스트가 없어요" : "No hosts yet"} />
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-              {hosts.map((host) => {
-                const stats = hostStats[host.id];
-                return (
-                  <button key={host.id} onClick={() => openHostModal(host)} className="group rounded-2xl overflow-hidden bg-white border border-gray-100 hover:shadow-lg transition-shadow cursor-pointer text-left w-full">
-                    {/* Square profile image */}
-                    <div className="aspect-square overflow-hidden bg-gray-200">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={host.avatar_url || "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&q=80"}
-                        alt={host.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                      />
+              {hosts.map((host) => (
+                <div key={host.id} className="group rounded-2xl overflow-hidden bg-white border border-gray-100 hover:shadow-lg transition-shadow">
+                  <div className="aspect-square overflow-hidden bg-gray-200">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={host.avatar_url || "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&q=80"}
+                      alt={host.name}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    />
+                  </div>
+                  <div className="p-3">
+                    <h4 className="text-sm font-bold text-gray-900 mb-1.5">{host.name}</h4>
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      <span className="rounded-full text-[10px] font-semibold bg-gray-100 text-gray-500 px-2 py-0.5">{host.location}</span>
+                      {host.langs.map((l) => (
+                        <span key={l} className="rounded-full text-[10px] font-semibold bg-orange-50 text-orange-500 px-2 py-0.5">{l}</span>
+                      ))}
                     </div>
-                    <div className="p-3">
-                      <h4 className="text-sm font-bold text-gray-900 mb-1.5">{host.name}</h4>
-                      <div className="flex flex-wrap gap-1 mb-2">
-                        <span className="rounded-full text-[10px] font-semibold bg-gray-100 text-gray-500 px-2 py-0.5">{host.location}</span>
-                        {host.langs.map((l) => (
-                          <span key={l} className="rounded-full text-[10px] font-semibold bg-orange-50 text-orange-500 px-2 py-0.5">{l}</span>
-                        ))}
-                      </div>
-                      <p className="text-[11px] text-gray-400 line-clamp-2 leading-relaxed mb-2">{hostBio(host, lang)}</p>
-                      <div className="flex items-center gap-1 text-xs">
-                        {stats && stats.review_count > 0 ? (
-                          <>
-                            <span className="text-yellow-400 text-sm">★</span>
-                            <span className="font-bold text-gray-800">{stats.avg_stars}</span>
-                            <span className="text-gray-400">({stats.review_count})</span>
-                          </>
-                        ) : (
-                          <span className="text-gray-300 text-[11px]">{lang === "ja" ? "レビューなし" : lang === "en" ? "No reviews" : "리뷰 없음"}</span>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
+                    <p className="text-[11px] text-gray-400 line-clamp-2 leading-relaxed">{hostBio(host, lang)}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </section>
@@ -404,58 +375,6 @@ export default function HomePage() {
       </main>
       <Footer />
 
-      {/* ── HOST REVIEWS MODAL ────────────────────────────────────── */}
-      {selectedHost && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/50" onClick={() => setSelectedHost(null)}>
-          <div className="bg-white rounded-2xl w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center gap-3 p-4 border-b border-gray-100">
-              <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200 shrink-0">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={selectedHost.avatar_url || "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200&q=80"} alt={selectedHost.name} className="w-full h-full object-cover" />
-              </div>
-              <div>
-                <h3 className="font-bold text-gray-900">{selectedHost.name}</h3>
-                <p className="text-xs text-gray-500">{hostBio(selectedHost, lang)}</p>
-              </div>
-              <button onClick={() => setSelectedHost(null)} className="ml-auto text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
-            </div>
-            <div className="overflow-y-auto p-4 space-y-3">
-              {hostReviewsLoading ? (
-                <div className="space-y-3">
-                  {[1,2].map(i => <div key={i} className="h-20 rounded-xl bg-gray-100 animate-pulse" />)}
-                </div>
-              ) : hostReviews.length === 0 ? (
-                <div className="text-center py-10 text-gray-400">
-                  <div className="text-3xl mb-2">💬</div>
-                  <p className="text-sm">{lang === "ja" ? "まだレビューはありません" : lang === "ko" ? "아직 등록된 리뷰가 없어요" : "No reviews yet"}</p>
-                </div>
-              ) : (
-                hostReviews.map((r) => (
-                  <div key={r.id} className="rounded-xl border border-gray-100 p-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <div className="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-400 shrink-0 overflow-hidden">
-                        {r.profile?.avatar_url
-                          /* eslint-disable-next-line @next/next/no-img-element */
-                          ? <img src={r.profile.avatar_url} alt="" className="w-full h-full object-cover" />
-                          : r.profile?.name?.charAt(0) ?? "?"}
-                      </div>
-                      <div>
-                        <p className="text-xs font-semibold text-gray-800">{r.profile?.name ?? (lang === "ja" ? "匿名" : lang === "en" ? "Anonymous" : "익명")}</p>
-                        <div className="flex">
-                          {[1,2,3,4,5].map((s) => (
-                            <Star key={s} className={`h-3 w-3 fill-current ${s <= r.stars ? "text-yellow-400" : "text-gray-200"}`} />
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                    {r.text && <p className="text-sm text-gray-500 leading-relaxed">{r.text}</p>}
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }

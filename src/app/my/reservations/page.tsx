@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { User } from "@supabase/supabase-js";
-import { Star, ImagePlus, X } from "lucide-react";
+import { Star, X } from "lucide-react";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import { useLanguage } from "@/context/language-context";
@@ -38,10 +38,6 @@ function StarPicker({ value, onChange }: { value: number; onChange: (v: number) 
 interface ReviewFormState {
   eventStars: number;
   eventText: string;
-  hostStars: number;
-  hostText: string;
-  images: string[]; // public URLs
-  uploading: boolean;
   submitting: boolean;
   done: boolean;
 }
@@ -55,17 +51,9 @@ export default function ReservationsPage() {
   const [registrations, setRegistrations] = useState<DbRegistration[]>([]);
   const [loading, setLoading] = useState(true);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
-
-  // reviewed event ids
   const [reviewedEventIds, setReviewedEventIds] = useState<Set<string>>(new Set());
-
-  // review forms per event_id
   const [reviewForms, setReviewForms] = useState<Record<string, ReviewFormState>>({});
-
-  // open review form for which event
   const [openReviewId, setOpenReviewId] = useState<string | null>(null);
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const localeStr = lang === "ja" ? "ja-JP" : lang === "ko" ? "ko-KR" : "en-US";
 
@@ -98,8 +86,7 @@ export default function ReservationsPage() {
 
   function getForm(eventId: string): ReviewFormState {
     return reviewForms[eventId] ?? {
-      eventStars: 0, eventText: "", hostStars: 0, hostText: "",
-      images: [], uploading: false, submitting: false, done: false,
+      eventStars: 0, eventText: "", submitting: false, done: false,
     };
   }
 
@@ -110,29 +97,8 @@ export default function ReservationsPage() {
     }));
   }
 
-  async function handleUploadImage(eventId: string, file: File) {
-    setForm(eventId, { uploading: true });
-    const supabase = createClient();
-    const ext = file.name.split(".").pop() ?? "jpg";
-    const path = `reviews/${eventId}_${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from("bridge-images").upload(path, file, { upsert: true });
-    if (!error) {
-      const { data } = supabase.storage.from("bridge-images").getPublicUrl(path);
-      const form = getForm(eventId);
-      setForm(eventId, { images: [...form.images, data.publicUrl], uploading: false });
-    } else {
-      setForm(eventId, { uploading: false });
-    }
-  }
-
-  function removeImage(eventId: string, url: string) {
-    const form = getForm(eventId);
-    setForm(eventId, { images: form.images.filter((u) => u !== url) });
-  }
-
   async function handleSubmitReview(reg: DbRegistration) {
-    const event = reg.event;
-    if (!event || !user) return;
+    if (!user) return;
     const form = getForm(reg.event_id);
     if (form.eventStars === 0) return;
     setForm(reg.event_id, { submitting: true });
@@ -143,24 +109,7 @@ export default function ReservationsPage() {
       user_id: user.id,
       stars: form.eventStars,
       text: form.eventText || null,
-      image_urls: form.images,
     });
-
-    if (event.host_id && form.hostStars > 0) {
-      await supabase.from("bridge_host_reviews").insert({
-        host_id: event.host_id, user_id: user.id, event_id: reg.event_id,
-        stars: form.hostStars, text: form.hostText || null,
-      });
-      const { data: hostReviews } = await supabase
-        .from("bridge_host_reviews").select("stars").eq("host_id", event.host_id);
-      if (hostReviews?.length) {
-        const avg = hostReviews.reduce((s: number, r: { stars: number }) => s + r.stars, 0) / hostReviews.length;
-        await supabase.from("bridge_hosts").update({
-          stars: Math.round(avg * 10) / 10,
-          review_count: hostReviews.length,
-        }).eq("id", event.host_id);
-      }
-    }
 
     setReviewedEventIds((prev) => new Set([...prev, reg.event_id]));
     setForm(reg.event_id, { submitting: false, done: true });
@@ -333,58 +282,12 @@ export default function ReservationsPage() {
                               </button>
                             </div>
 
-                            {/* Event stars */}
                             <div>
-                              <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">{tr.review_event_title}</p>
                               <StarPicker value={form.eventStars} onChange={(v) => setForm(reg.event_id, { eventStars: v })} />
-                              <textarea rows={2} value={form.eventText}
+                              <textarea rows={3} value={form.eventText}
                                 onChange={(e) => setForm(reg.event_id, { eventText: e.target.value })}
                                 placeholder={tr.review_placeholder}
-                                className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 resize-none" />
-                            </div>
-
-                            {/* Host stars */}
-                            {event.host_id && (
-                              <div>
-                                <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">{tr.review_host_title}</p>
-                                <StarPicker value={form.hostStars} onChange={(v) => setForm(reg.event_id, { hostStars: v })} />
-                                <textarea rows={2} value={form.hostText}
-                                  onChange={(e) => setForm(reg.event_id, { hostText: e.target.value })}
-                                  placeholder={tr.review_placeholder}
-                                  className="mt-2 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 resize-none" />
-                              </div>
-                            )}
-
-                            {/* Image upload */}
-                            <div>
-                              <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2">
-                                {lang === "ja" ? "写真を追加" : lang === "ko" ? "사진 추가" : "Add Photos"}
-                              </p>
-                              <div className="flex flex-wrap gap-2">
-                                {form.images.map((url) => (
-                                  <div key={url} className="relative w-20 h-20 rounded-xl overflow-hidden">
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img src={url} alt="" className="w-full h-full object-cover" />
-                                    <button onClick={() => removeImage(reg.event_id, url)}
-                                      className="absolute top-0.5 right-0.5 bg-black/60 rounded-full p-0.5 text-white hover:bg-black/80">
-                                      <X className="h-3 w-3" />
-                                    </button>
-                                  </div>
-                                ))}
-                                {form.images.length < 5 && (
-                                  <button
-                                    onClick={() => {
-                                      setOpenReviewId(reg.event_id);
-                                      fileInputRef.current?.click();
-                                      fileInputRef.current?.setAttribute("data-event-id", reg.event_id);
-                                    }}
-                                    disabled={form.uploading}
-                                    className="w-20 h-20 rounded-xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center gap-1 text-gray-400 hover:border-primary hover:text-primary transition-colors disabled:opacity-50">
-                                    <ImagePlus className="h-5 w-5" />
-                                    <span className="text-[10px]">{form.uploading ? "..." : lang === "ko" ? "추가" : "Add"}</span>
-                                  </button>
-                                )}
-                              </div>
+                                className="mt-3 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 resize-none" />
                             </div>
 
                             <button
@@ -412,19 +315,6 @@ export default function ReservationsPage() {
           </div>
         )}
 
-        {/* Hidden file input for image upload */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => {
-            const eventId = fileInputRef.current?.getAttribute("data-event-id");
-            const file = e.target.files?.[0];
-            if (file && eventId) handleUploadImage(eventId, file);
-            e.target.value = "";
-          }}
-        />
       </main>
       <Footer />
     </div>
