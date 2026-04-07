@@ -236,23 +236,16 @@ export default function HomePage() {
                   ブリッジの思い出を貼ってください！<br />
                   Leave your Bridge memory here.
                 </p>
-                {/* 심플 포스트잇 버튼 */}
                 <button
                   onClick={async () => {
                     const { data: { session } } = await createClient().auth.getSession();
                     router.push(session ? "/my/reservations" : "/auth/login");
                   }}
-                  className="relative select-none cursor-pointer transition-all duration-200 hover:-translate-y-1 hover:scale-105 hover:animate-wiggle shrink-0"
-                  style={{ width: 64, height: 64 }}
+                  className="shrink-0 w-8 h-8 rounded-full bg-gray-800 hover:bg-primary flex items-center justify-center transition-colors"
                 >
-                  <div className="absolute -top-2 left-1/2 -translate-x-1/2 z-10 w-3.5 h-3.5 rounded-full bg-gray-500 border-2 border-gray-400" />
-                  <div
-                    className="w-full h-full rounded-sm"
-                    style={{
-                      backgroundColor: "#FEF08A",
-                      boxShadow: "2px 4px 10px rgba(202,138,4,0.3), 0 1px 3px rgba(0,0,0,0.1)",
-                    }}
-                  />
+                  <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                  </svg>
                 </button>
               </div>
             </div>
