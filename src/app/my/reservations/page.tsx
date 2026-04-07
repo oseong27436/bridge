@@ -10,7 +10,7 @@ import Footer from "@/components/layout/footer";
 import { useLanguage } from "@/context/language-context";
 import { translations } from "@/lib/i18n";
 import { createClient } from "@/lib/supabase";
-import { getUserRegistrations, eventTitle, eventLocation, type DbRegistration } from "@/lib/db";
+import { getUserRegistrations, getEventReviews, eventTitle, eventLocation, type DbRegistration, type DbReview } from "@/lib/db";
 
 type RegistrationStatus = "pending" | "approved" | "confirmed" | "cancelled" | "attended";
 
@@ -71,11 +71,20 @@ export default function ReservationsPage() {
   const [reviewedEventIds, setReviewedEventIds] = useState<Set<string>>(new Set());
   const [reviewForms, setReviewForms] = useState<Record<string, ReviewFormState>>({});
   const [openReviewId, setOpenReviewId] = useState<string | null>(null);
+  const [boardReviews, setBoardReviews] = useState<Record<string, DbReview[]>>({});
 
   const localeStr = lang === "ja" ? "ja-JP" : lang === "ko" ? "ko-KR" : "en-US";
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+
+  useEffect(() => {
+    if (!openReviewId) return;
+    if (boardReviews[openReviewId]) return; // already fetched
+    getEventReviews(openReviewId).then((reviews) => {
+      setBoardReviews((prev) => ({ ...prev, [openReviewId]: reviews }));
+    });
+  }, [openReviewId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     async function init() {
@@ -353,16 +362,32 @@ export default function ReservationsPage() {
                                   });
                                 }}
                               >
-                                {/* 포스트잇 미리보기 */}
+                                {/* 기존 리뷰 포스트잇 */}
+                                {(boardReviews[reg.event_id] ?? []).map((r) => (
+                                  <div
+                                    key={r.id}
+                                    className="absolute rounded-sm pointer-events-none opacity-70"
+                                    style={{
+                                      left: `${((r.note_x ?? 0) / BOARD_W) * 100}%`,
+                                      top: `${((r.note_y ?? 0) / BOARD_H) * 100}%`,
+                                      width: `${(NOTE_W / BOARD_W) * 100}%`,
+                                      aspectRatio: `${NOTE_W}/${NOTE_H}`,
+                                      backgroundColor: NOTE_COLOR_STYLES[r.note_color as NoteColor]?.bg ?? "#FEF08A",
+                                      boxShadow: "1px 2px 4px rgba(0,0,0,0.15)",
+                                    }}
+                                  />
+                                ))}
+                                {/* 내 포스트잇 미리보기 */}
                                 <div
-                                  className="absolute rounded-sm pointer-events-none"
+                                  className="absolute rounded-sm pointer-events-none z-10"
                                   style={{
                                     left: `${(form.noteX / BOARD_W) * 100}%`,
                                     top: `${(form.noteY / BOARD_H) * 100}%`,
                                     width: `${(NOTE_W / BOARD_W) * 100}%`,
                                     aspectRatio: `${NOTE_W}/${NOTE_H}`,
                                     backgroundColor: NOTE_COLOR_STYLES[form.noteColor].bg,
-                                    boxShadow: "2px 3px 8px rgba(0,0,0,0.2)",
+                                    boxShadow: "2px 3px 8px rgba(0,0,0,0.25)",
+                                    outline: "2px solid rgba(0,0,0,0.3)",
                                   }}
                                 />
                               </div>
