@@ -43,8 +43,8 @@ const NOTE_COLOR_STYLES: Record<NoteColor, { bg: string; label: string }> = {
   pink:   { bg: "#FBCFE8", label: "🩷" },
 };
 
-const BOARD_W = 1400;
-const BOARD_H = 900;
+const BOARD_W = 2800;
+const BOARD_H = 1800;
 const NOTE_W = 180;
 const NOTE_H = 160;
 

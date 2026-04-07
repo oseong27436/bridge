@@ -9,8 +9,8 @@ const NOTE_COLORS: Record<string, { bg: string; shadow: string }> = {
   pink:   { bg: "#FBCFE8", shadow: "rgba(219,39,119,0.2)" },
 };
 
-const BOARD_W = 1400;
-const BOARD_H = 900;
+const BOARD_W = 2800;
+const BOARD_H = 1800;
 const MINIMAP_W = 160;
 const MINIMAP_H = Math.round((BOARD_H / BOARD_W) * MINIMAP_W);
 const MIN_SCALE = 0.15;
