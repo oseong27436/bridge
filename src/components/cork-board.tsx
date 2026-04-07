@@ -120,13 +120,15 @@ export default function CorkBoard({ reviews, lang, onDelete, emptyMessage }: Cor
 
   const drag = useRef<{ x: number; y: number; tx: number; ty: number } | null>(null);
   const pinch = useRef<{ dist: number; midX: number; midY: number; tx: number; ty: number; scale: number } | null>(null);
+  const minScaleRef = useRef(MIN_SCALE);
 
-  // Init: fit board to container
+  // Init: fit board to container, set min scale dynamically
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const { width, height } = el.getBoundingClientRect();
     const s = Math.min(width / BOARD_W, height / BOARD_H, 1);
+    minScaleRef.current = s; // can't zoom out past fit-to-screen
     setView({ scale: s, tx: (width - BOARD_W * s) / 2, ty: (height - BOARD_H * s) / 2 });
   }, []);
 
@@ -140,7 +142,7 @@ export default function CorkBoard({ reviews, lang, onDelete, emptyMessage }: Cor
       const fx = e.clientX - rect.left;
       const fy = e.clientY - rect.top;
       const prev = viewRef.current;
-      const newScale = clamp(prev.scale * (e.deltaY < 0 ? 1.1 : 0.9), MIN_SCALE, MAX_SCALE);
+      const newScale = clamp(prev.scale * (e.deltaY < 0 ? 1.1 : 0.9), minScaleRef.current, MAX_SCALE);
       const boardX = (fx - prev.tx) / prev.scale;
       const boardY = (fy - prev.ty) / prev.scale;
       const { tx, ty } = clampView(fx - boardX * newScale, fy - boardY * newScale, newScale, rect.width, rect.height);
@@ -190,7 +192,7 @@ export default function CorkBoard({ reviews, lang, onDelete, emptyMessage }: Cor
         const midX = (a.clientX + b.clientX) / 2 - rect.left;
         const midY = (a.clientY + b.clientY) / 2 - rect.top;
         const p = pinch.current;
-        const newScale = clamp(p.scale * (dist / p.dist), MIN_SCALE, MAX_SCALE);
+        const newScale = clamp(p.scale * (dist / p.dist), minScaleRef.current, MAX_SCALE);
         const boardX = (p.midX - p.tx) / p.scale;
         const boardY = (p.midY - p.ty) / p.scale;
         const { tx, ty } = clampView(midX - boardX * newScale, midY - boardY * newScale, newScale, rect.width, rect.height);
@@ -267,7 +269,7 @@ export default function CorkBoard({ reviews, lang, onDelete, emptyMessage }: Cor
       {/* Main canvas */}
       <div
         ref={containerRef}
-        className="w-full h-full overflow-hidden rounded-2xl cursor-grab active:cursor-grabbing select-none"
+        className="w-full h-full overflow-hidden rounded-2xl cursor-grab active:cursor-grabbing select-none relative"
         onMouseDown={onMouseDown}
         onMouseMove={onMouseMove}
         onMouseUp={onMouseUp}
@@ -275,6 +277,9 @@ export default function CorkBoard({ reviews, lang, onDelete, emptyMessage }: Cor
       >
         <div
           style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
             width: BOARD_W,
             height: BOARD_H,
             transform: `translate(${view.tx}px, ${view.ty}px) scale(${view.scale})`,
