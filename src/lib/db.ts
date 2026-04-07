@@ -184,6 +184,16 @@ export async function getReviews(): Promise<DbReview[]> {
   return data ?? [];
 }
 
+export async function getEventReviews(eventId: string): Promise<DbReview[]> {
+  const supabase = createClient();
+  const { data } = await supabase
+    .from("bridge_reviews")
+    .select("*, profile:bridge_profiles!bridge_reviews_user_id_profiles_fkey(name,avatar_url)")
+    .eq("event_id", eventId)
+    .order("created_at", { ascending: false });
+  return data ?? [];
+}
+
 export async function getAllReviews(): Promise<DbReview[]> {
   const supabase = createClient();
   const { data } = await supabase

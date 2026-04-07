@@ -399,42 +399,39 @@ export default function EventDetailPage() {
         {/* Reviews list */}
         {reviews.length > 0 && (
           <div className="mt-4 bg-white rounded-2xl border border-gray-200 p-6">
-            <h3 className="font-extrabold text-gray-900 mb-4">{tr.review_list_title} ({reviews.length})</h3>
+            <h3 className="font-extrabold text-gray-900 mb-4">
+              {lang === "ja" ? "レビュー" : lang === "ko" ? "리뷰" : "Reviews"} ({reviews.length})
+            </h3>
             <div className="space-y-4">
-              {reviews.map((r) => (
-                <div key={r.id} className="flex gap-3">
-                  <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-500 shrink-0 overflow-hidden">
-                    {(r.profile as { name?: string; avatar_url?: string } | undefined)?.avatar_url
-                      ? <img src={(r.profile as { name?: string; avatar_url?: string }).avatar_url!} alt="" className="w-full h-full object-cover" />
-                      : (r.profile as { name?: string; avatar_url?: string } | undefined)?.name?.charAt(0) ?? "?"
-                    }
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-gray-700">
-                        {(r.profile as { name?: string } | undefined)?.name ?? lang === "ja" ? "匿名" : lang === "en" ? "Anonymous" : "익명"}
-                      </span>
-                      <div className="flex">
-                        {[1,2,3,4,5].map((s) => (
-                          <Star key={s} className={`h-3 w-3 fill-current ${s <= r.stars ? "text-yellow-400" : "text-gray-200"}`} />
-                        ))}
-                      </div>
+              {reviews.map((r) => {
+                const profile = r.profile as { name?: string; avatar_url?: string } | undefined;
+                return (
+                  <div key={r.id} className="flex gap-3">
+                    <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-500 shrink-0 overflow-hidden">
+                      {profile?.avatar_url
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        ? <img src={profile.avatar_url} alt="" className="w-full h-full object-cover" />
+                        : profile?.name?.charAt(0) ?? "?"}
                     </div>
-                    {r.text && <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{r.text}</p>}
-                    {((r as { image_urls?: string[] }).image_urls ?? []).length > 0 && (
-                      <div className="flex gap-1 mt-1 flex-wrap">
-                        {((r as { image_urls?: string[] }).image_urls ?? []).map((url: string) => (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img key={url} src={url} alt="" className="w-16 h-16 rounded-lg object-cover border border-gray-100" />
-                        ))}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-gray-700">
+                          {profile?.name ?? (lang === "ja" ? "匿名" : lang === "en" ? "Anonymous" : "익명")}
+                        </span>
+                        <div className="flex">
+                          {[1,2,3,4,5].map((s) => (
+                            <Star key={s} className={`h-3 w-3 fill-current ${s <= r.stars ? "text-yellow-400" : "text-gray-200"}`} />
+                          ))}
+                        </div>
                       </div>
-                    )}
-                    <p className="text-[10px] text-gray-300 mt-0.5">
-                      {new Date(r.created_at).toLocaleDateString(localeStr)}
-                    </p>
+                      {r.text && <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{r.text}</p>}
+                      <p className="text-[10px] text-gray-300 mt-0.5">
+                        {new Date(r.created_at).toLocaleDateString(localeStr)}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
