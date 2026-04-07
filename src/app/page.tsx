@@ -2,12 +2,14 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useLanguage } from "@/context/language-context";
 import { translations } from "@/lib/i18n";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import { getEvents, getHosts, getGallery, getReviews, getSettings, eventTitle, eventDesc, hostBio, type DbEvent, type DbHost, type DbGallery, type DbReview } from "@/lib/db";
 import CorkBoard from "@/components/cork-board";
+import { createClient } from "@/lib/supabase";
 
 const LANG_FILTERS = ["日本語", "한국어", "English", "中文"];
 
@@ -38,6 +40,7 @@ function EmptyState({ icon, message, sub, href, cta }: { icon: string; message: 
 
 export default function HomePage() {
   const { lang } = useLanguage();
+  const router = useRouter();
   const tr = translations[lang];
   const [activeTab, setActiveTab] = useState(0);
   const [activeLang, setActiveLang] = useState<string | null>(null);
@@ -224,9 +227,39 @@ export default function HomePage() {
         {/* ── REVIEWS (코르크보드) ───────────────────────────────────── */}
         <section className="bg-[#b5854a]/20 border-y border-[#b5854a]/30">
           <div className="mx-auto max-w-6xl px-4 sm:px-6 py-12">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">
-              {lang === "ja" ? "みんなのレビュー" : lang === "ko" ? "모두의 리뷰" : "Community Reviews"}
-            </h2>
+            <div className="flex items-start justify-between gap-4 mb-6 flex-wrap">
+              <h2 className="text-2xl font-bold text-gray-900">
+                {lang === "ja" ? "みんなのレビュー" : lang === "ko" ? "모두의 리뷰" : "Community Reviews"}
+              </h2>
+              {/* Post-it CTA button */}
+              <button
+                onClick={async () => {
+                  const { data: { session } } = await createClient().auth.getSession();
+                  router.push(session ? "/my/reservations" : "/auth/login");
+                }}
+                className="group relative select-none cursor-pointer transition-all duration-200 hover:-translate-y-1 hover:scale-105 hover:animate-wiggle"
+                style={{ width: 140 }}
+              >
+                {/* Pin */}
+                <div className="absolute -top-2.5 left-1/2 -translate-x-1/2 z-10 w-4 h-4 rounded-full bg-gray-500 border-2 border-gray-400 flex items-center justify-center">
+                  <div className="w-1.5 h-1.5 rounded-full bg-gray-300" />
+                </div>
+                {/* Note */}
+                <div
+                  className="pt-4 px-3 pb-3 rounded-sm text-center"
+                  style={{
+                    backgroundColor: "#FEF08A",
+                    boxShadow: "2px 4px 12px rgba(202,138,4,0.3), 0 1px 3px rgba(0,0,0,0.1)",
+                  }}
+                >
+                  <p className="text-[11px] font-bold text-gray-700 leading-snug">
+                    {lang === "en"
+                      ? "Leave your Bridge memory! ✍️"
+                      : "ブリッジの思い出を貼ってください！✍️"}
+                  </p>
+                </div>
+              </button>
+            </div>
             {loading ? (
               <div className="h-64 rounded-2xl bg-[#c19a6b]/40 animate-pulse" />
             ) : (
