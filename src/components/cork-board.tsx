@@ -35,6 +35,9 @@ function Note({ review, lang, onDelete }: NoteProps) {
       className="absolute group select-none"
       style={{ left: x, top: y, width: 180 }}
     >
+      {/* Wrapper: pin + note move together on hover */}
+      <div className="relative transition-all duration-200 ease-out group-hover:-translate-y-2 group-hover:scale-105 group-hover:z-20 group-hover:animate-wiggle">
+
       {/* Pin */}
       <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-10 w-5 h-5 rounded-full bg-gray-500 shadow-md border-2 border-gray-400 flex items-center justify-center">
         <div className="w-2 h-2 rounded-full bg-gray-300" />
@@ -42,9 +45,7 @@ function Note({ review, lang, onDelete }: NoteProps) {
 
       {/* Note */}
       <div
-        className="relative pt-4 px-3 pb-3 rounded-sm transition-all duration-200 ease-out cursor-default
-          group-hover:-translate-y-2 group-hover:scale-105 group-hover:z-20
-          group-hover:animate-wiggle"
+        className="relative pt-4 px-3 pb-3 rounded-sm cursor-default"
         style={{
           backgroundColor: color.bg,
           boxShadow: `2px 4px 12px ${color.shadow}, 0 1px 3px rgba(0,0,0,0.1)`,
@@ -90,6 +91,7 @@ function Note({ review, lang, onDelete }: NoteProps) {
             <span key={s} className={`text-xs ${s <= review.stars ? "text-yellow-500" : "text-gray-300"}`}>★</span>
           ))}
         </div>
+      </div>
       </div>
     </div>
   );
