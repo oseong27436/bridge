@@ -72,6 +72,33 @@ export default function EventsPage() {
     await createClient().from("bridge_registrations").insert({
       event_id: event.id, user_id: userId, status,
     });
+
+    // 자유참가: 신청 완료 + 승인 알림 즉시 발송
+    if (!event.approval_required) {
+      const title = lang === "ko" ? event.title_ko : lang === "en" ? event.title_en : event.title_ja;
+      await fetch("/api/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lineUserId,
+          action: "applied",
+          eventTitle: title,
+          lang,
+        }),
+      });
+      await fetch("/api/notify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lineUserId,
+          action: "approved",
+          eventTitle: title,
+          openChatUrl: (event as DbEvent & { open_chat_url?: string }).open_chat_url ?? null,
+          lang,
+        }),
+      });
+    }
+
     setRegisteredIds((prev) => new Set([...prev, event.id]));
     setApplyingId(null);
     setShowRegForm(false);

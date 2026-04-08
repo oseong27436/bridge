@@ -313,6 +313,10 @@ export default function AdminEventsPage() {
   }
 
   async function handleSave() {
+    if (!form.open_chat_url.trim()) {
+      alert(lang === "ja" ? "LINEオープンチャットURLは必須です。" : lang === "ko" ? "LINE 오픈채팅 URL은 필수입니다." : "LINE Open Chat URL is required.");
+      return;
+    }
     setSaving(true);
     const supabase = createClient();
     const locationText = form.location_type === "tba" ? "__tba__" : form.location_type === "link" ? "" : form.location;
