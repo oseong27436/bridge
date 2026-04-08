@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, MapPin, Clock, Users } from "lucide-react";
+import { ChevronLeft, ChevronRight, MapPin, Clock, Users, Banknote } from "lucide-react";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import { getEvents, getSettings, eventTitle, eventLocation, type DbEvent } from "@/lib/db";
@@ -44,8 +44,8 @@ export default function EventsPage() {
   const [calMonth, setCalMonth] = useState(today.getMonth());
   const todayStr = toDateStr(today.getFullYear(), today.getMonth(), today.getDate());
 
-  // Single selected event — drives both PC right panel and mobile popup
-  const [selectedEvent, setSelectedEvent] = useState<DbEvent | null>(null);
+  // Selected date — drives both PC right panel and mobile popup
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   useEffect(() => {
     getEvents().then((data) => { setEvents(data); setLoading(false); });
@@ -86,15 +86,18 @@ export default function EventsPage() {
     [events, todayStr]
   );
 
+  const selectedEvent = selectedDate ? (eventsByDate[selectedDate]?.[0] ?? null) : null;
+  const selectedHasEvent = selectedDate ? (eventsByDate[selectedDate]?.length ?? 0) > 0 : false;
+
   const calendarDays = getCalendarDays(calYear, calMonth);
 
   function prevMonth() {
     if (calMonth === 0) { setCalMonth(11); setCalYear(y => y - 1); } else setCalMonth(m => m - 1);
-    setSelectedEvent(null); setShowRegForm(false);
+    setSelectedDate(null); setShowRegForm(false);
   }
   function nextMonth() {
     if (calMonth === 11) { setCalMonth(0); setCalYear(y => y + 1); } else setCalMonth(m => m + 1);
-    setSelectedEvent(null); setShowRegForm(false);
+    setSelectedDate(null); setShowRegForm(false);
   }
 
   const months = tr.months as unknown as string[];
@@ -138,6 +141,16 @@ export default function EventsPage() {
               <span>{tr.going} / {event.capacity}{tr.spots}</span>
             </div>
           )}
+          <div className="flex items-center gap-2">
+            <Banknote className="w-4 h-4 text-gray-400 shrink-0" />
+            <span>
+              {event.fee_type === "free"
+                ? (lang === "ja" ? "無料" : lang === "ko" ? "무료" : "Free")
+                : event.fee_type === "tba"
+                  ? (lang === "ja" ? "後日公開" : lang === "ko" ? "추후 공개" : "TBA")
+                  : `¥${event.fee_amount?.toLocaleString()}`}
+            </span>
+          </div>
         </div>
 
         {/* Actions */}
@@ -214,7 +227,7 @@ export default function EventsPage() {
                     <h2 className="text-xl font-bold text-gray-900">{months[calMonth]} {calYear}</h2>
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => { setCalYear(today.getFullYear()); setCalMonth(today.getMonth()); setSelectedEvent(null); }}
+                        onClick={() => { setCalYear(today.getFullYear()); setCalMonth(today.getMonth()); setSelectedDate(null); }}
                         className="text-xs font-semibold text-gray-500 border border-gray-200 rounded-lg px-2.5 py-1.5 hover:border-primary hover:text-primary transition-colors"
                       >
                         {lang === "ja" ? "今月" : lang === "ko" ? "이번 달" : "Today"}
@@ -247,32 +260,30 @@ export default function EventsPage() {
                       const dayEvents = eventsByDate[dateStr] ?? [];
                       const hasEvent = dayEvents.length > 0;
                       const isToday = dateStr === todayStr;
-                      const isSelected = selectedEvent && dayEvents.some(e => e.id === selectedEvent.id);
+                      const isSelected = selectedDate === dateStr;
 
                       return (
                         <button
                           key={i}
-                          // PC: hover → show in right panel
                           onMouseEnter={() => {
-                            if (!hasEvent) return;
-                            setSelectedEvent(dayEvents[0]);
+                            setSelectedDate(dateStr);
                             setShowRegForm(false);
                           }}
-                          // Mobile/PC: click → toggle
                           onClick={() => {
-                            if (!hasEvent) return;
-                            setSelectedEvent(prev => prev?.id === dayEvents[0].id ? null : dayEvents[0]);
+                            setSelectedDate(prev => prev === dateStr ? null : dateStr);
                             setShowRegForm(false);
                           }}
                           className={`
-                            aspect-square flex items-center justify-center rounded-xl text-sm font-bold transition-all duration-150
+                            aspect-square flex items-center justify-center rounded-xl text-sm font-bold transition-all duration-150 cursor-pointer
                             ${isSelected
-                              ? "bg-primary text-white shadow-lg scale-110 ring-2 ring-primary/30"
+                              ? hasEvent
+                                ? "bg-primary text-white shadow-lg scale-110 ring-2 ring-primary/30"
+                                : "bg-gray-100 text-gray-600 scale-105 ring-2 ring-gray-200"
                               : hasEvent
-                                ? "bg-primary/20 text-primary border-2 border-primary/40 hover:bg-primary hover:text-white hover:scale-110 hover:shadow-md cursor-pointer"
+                                ? "bg-primary/20 text-primary border-2 border-primary/40 hover:bg-primary hover:text-white hover:scale-110 hover:shadow-md"
                                 : isToday
-                                  ? "ring-2 ring-primary text-primary cursor-default"
-                                  : "text-gray-400 cursor-default"
+                                  ? "ring-2 ring-primary text-primary hover:bg-gray-50"
+                                  : "text-gray-500 hover:bg-gray-50"
                             }
                           `}
                         >
@@ -283,10 +294,17 @@ export default function EventsPage() {
                   </div>
                 </div>
 
-                {/* Mobile: selected event panel — below calendar */}
-                {selectedEvent && (
+                {/* Mobile: selected date panel — below calendar */}
+                {selectedDate && (
                   <div className="lg:hidden mt-4 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                    <EventPanel event={selectedEvent} />
+                    {selectedHasEvent && selectedEvent ? (
+                      <EventPanel event={selectedEvent} />
+                    ) : (
+                      <div className="p-6 text-center text-gray-400">
+                        <p className="text-2xl mb-2">📭</p>
+                        <p className="text-sm">{lang === "ja" ? "この日はイベントなし" : lang === "ko" ? "이 날은 이벤트가 없어요" : "No events on this day"}</p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -297,9 +315,19 @@ export default function EventsPage() {
               <div className="lg:sticky lg:top-6 flex flex-col gap-4">
 
                 {/* Event detail panel — shown on hover/select */}
-                {selectedEvent ? (
+                {selectedDate ? (
                   <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                    <EventPanel event={selectedEvent} />
+                    {selectedHasEvent && selectedEvent ? (
+                      <EventPanel event={selectedEvent} />
+                    ) : (
+                      <div className="p-10 text-center text-gray-400">
+                        <p className="text-3xl mb-3">📭</p>
+                        <p className="text-sm font-medium">{lang === "ja" ? "この日はイベントなし" : lang === "ko" ? "이 날은 이벤트가 없어요" : "No events on this day"}</p>
+                        <p className="text-xs text-gray-300 mt-1">
+                          {new Date(selectedDate + "T00:00:00").toLocaleDateString(localeStr, { month: "long", day: "numeric", weekday: "long" })}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   /* Default: upcoming list */
@@ -344,7 +372,7 @@ export default function EventsPage() {
                 )}
 
                 {/* Hint text */}
-                {!selectedEvent && (
+                {!selectedDate && (
                   <p className="text-xs text-center text-gray-300">
                     {lang === "ja" ? "カレンダーの日付にカーソルを合わせると詳細が表示されます" : lang === "ko" ? "달력의 날짜에 마우스를 올려 이벤트를 확인하세요" : "Hover over a date to see event details"}
                   </p>
