@@ -265,10 +265,6 @@ export default function EventsPage() {
                       return (
                         <button
                           key={i}
-                          onMouseEnter={() => {
-                            setSelectedDate(dateStr);
-                            setShowRegForm(false);
-                          }}
                           onClick={() => {
                             setSelectedDate(prev => prev === dateStr ? null : dateStr);
                             setShowRegForm(false);
