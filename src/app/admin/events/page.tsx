@@ -39,6 +39,7 @@ const EMPTY_FORM = {
   capacity: "",
   fee_type: "free",
   fee_amount: "",
+  approval_required: "true",
   open_chat_url: "",
   open_chat_qr_url: "",
 };
@@ -252,6 +253,7 @@ export default function AdminEventsPage() {
       capacity: e.capacity?.toString() ?? "",
       fee_type: e.fee_type ?? "free",
       fee_amount: e.fee_amount?.toString() ?? "",
+      approval_required: e.approval_required === false ? "false" : "true",
       open_chat_url: (e as DbEvent & { open_chat_url?: string }).open_chat_url ?? "",
       open_chat_qr_url: (e as DbEvent & { open_chat_qr_url?: string }).open_chat_qr_url ?? "",
     });
@@ -325,6 +327,7 @@ export default function AdminEventsPage() {
       capacity: form.capacity ? parseInt(form.capacity) : null,
       fee_type: form.fee_type,
       fee_amount: form.fee_type === "paid" && form.fee_amount ? parseInt(form.fee_amount) : null,
+      approval_required: form.approval_required !== "false",
       open_chat_url: form.open_chat_url || null,
       open_chat_qr_url: form.open_chat_qr_url || null,
     };
@@ -509,6 +512,27 @@ export default function AdminEventsPage() {
                   </div>
                 </div>
               )}
+
+              <SectionLabel>{lang === "ja" ? "参加方式" : lang === "ko" ? "참가 방식" : "Registration Type"}</SectionLabel>
+              <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-gray-700">
+                    {lang === "ja" ? "承認制" : lang === "ko" ? "승인제" : "Approval Required"}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {form.approval_required !== "false"
+                      ? (lang === "ja" ? "申込後、管理者が承認します" : lang === "ko" ? "신청 후 어드민이 승인합니다" : "Admin approves after application")
+                      : (lang === "ja" ? "申込後、即時参加確定" : lang === "ko" ? "신청 즉시 참가 확정" : "Confirmed immediately on apply")}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setForm((f) => ({ ...f, approval_required: f.approval_required !== "false" ? "false" : "true" }))}
+                  className={`relative w-11 h-6 rounded-full transition-colors ${form.approval_required !== "false" ? "bg-primary" : "bg-gray-300"}`}
+                >
+                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${form.approval_required !== "false" ? "translate-x-5" : "translate-x-0"}`} />
+                </button>
+              </div>
 
               <SectionLabel>{lang === "ja" ? "LINE オープンチャット" : lang === "ko" ? "LINE 오픈채팅" : "LINE Open Chat"}</SectionLabel>
               <Field

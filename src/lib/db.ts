@@ -21,6 +21,7 @@ export interface DbEvent {
   capacity: number | null;
   fee_type: "free" | "paid" | "tba";
   fee_amount: number | null;
+  approval_required: boolean;
   created_by: string | null;
   created_at: string;
 }

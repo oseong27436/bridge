@@ -35,6 +35,7 @@ export default function EventsPage() {
   const [loading, setLoading] = useState(true);
   const [eventsImage, setEventsImage] = useState("https://images.unsplash.com/photo-1514190051997-0f6f39ca5cde?w=1600&q=80");
   const [userId, setUserId] = useState<string | null>(null);
+  const [lineUserId, setLineUserId] = useState<string | null | undefined>(undefined); // undefined=loading
   const [registeredIds, setRegisteredIds] = useState<Set<string>>(new Set());
   const [applyingId, setApplyingId] = useState<string | null>(null);
   const [showRegForm, setShowRegForm] = useState(false);
@@ -52,14 +53,14 @@ export default function EventsPage() {
     getSettings().then((cfg) => { if (cfg.events_image) setEventsImage(cfg.events_image); });
     const supabase = createClient();
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!session) return;
+      if (!session) { setLineUserId(null); return; }
       setUserId(session.user.id);
-      const { data } = await supabase
-        .from("bridge_registrations")
-        .select("event_id, status")
-        .eq("user_id", session.user.id)
-        .neq("status", "cancelled");
-      setRegisteredIds(new Set((data ?? []).map((r: { event_id: string }) => r.event_id)));
+      const [{ data: regs }, { data: profile }] = await Promise.all([
+        supabase.from("bridge_registrations").select("event_id, status").eq("user_id", session.user.id).neq("status", "cancelled"),
+        supabase.from("bridge_profiles").select("line_user_id").eq("id", session.user.id).single(),
+      ]);
+      setRegisteredIds(new Set((regs ?? []).map((r: { event_id: string }) => r.event_id)));
+      setLineUserId(profile?.line_user_id ?? null);
     });
   }, []);
 
@@ -67,8 +68,9 @@ export default function EventsPage() {
     if (!userId) { window.location.href = "/auth/login"; return; }
     if (registeredIds.has(event.id)) return;
     setApplyingId(event.id);
+    const status = event.approval_required ? "pending" : "confirmed";
     await createClient().from("bridge_registrations").insert({
-      event_id: event.id, user_id: userId, status: "pending",
+      event_id: event.id, user_id: userId, status,
     });
     setRegisteredIds((prev) => new Set([...prev, event.id]));
     setApplyingId(null);
@@ -155,6 +157,16 @@ export default function EventsPage() {
 
         {/* Actions */}
         <div className="p-4 mt-auto">
+          {/* LINE 친구 미등록 시 */}
+          {userId && lineUserId === null && !isRegistered && (
+            <div className="mb-3 rounded-xl bg-green-50 border border-green-200 px-3 py-2.5 text-xs text-green-700 text-center">
+              {lang === "ja"
+                ? <>イベント参加にはLINE友達登録が必要です。<br /><a href="/my/profile" className="underline font-semibold">プロフィールで設定 →</a></>
+                : lang === "ko"
+                  ? <>이벤트 신청은 LINE 친구 등록이 필요합니다.<br /><a href="/my/profile" className="underline font-semibold">프로필에서 설정하기 →</a></>
+                  : <>LINE friend registration required to apply.<br /><a href="/my/profile" className="underline font-semibold">Set up in profile →</a></>}
+            </div>
+          )}
           {!showRegForm ? (
             <div className="flex gap-2">
               <Link
@@ -167,8 +179,13 @@ export default function EventsPage() {
                 <span className="flex-1 text-center rounded-xl bg-green-100 py-2.5 text-sm font-bold text-green-700">✓ {tr.reg_applied}</span>
               ) : (
                 <button
-                  onClick={() => setShowRegForm(true)}
-                  className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-bold text-white hover:bg-primary/90 transition-colors"
+                  onClick={() => {
+                    if (!userId) { window.location.href = "/auth/login"; return; }
+                    if (!lineUserId) return;
+                    setShowRegForm(true);
+                  }}
+                  disabled={userId !== null && lineUserId === null}
+                  className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-bold text-white hover:bg-primary/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                 >
                   {tr.reg_apply}
                 </button>
@@ -177,7 +194,9 @@ export default function EventsPage() {
           ) : (
             <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
               <p className="text-xs text-gray-500 mb-4">
-                {lang === "ja" ? "申し込みを確認後、承認メールをお送りします。" : lang === "ko" ? "검토 후 승인 메일을 보내드립니다." : "We'll review and send a confirmation."}
+                {event.approval_required
+                  ? (lang === "ja" ? "申し込みを確認後、承認メールをお送りします。" : lang === "ko" ? "검토 후 승인 메일을 보내드립니다." : "We'll review and send a confirmation.")
+                  : (lang === "ja" ? "申し込み後、即時参加確定です。" : lang === "ko" ? "신청 즉시 참가 확정됩니다." : "Your spot is confirmed immediately.")}
               </p>
               <div className="flex gap-2">
                 <button onClick={() => setShowRegForm(false)} className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-semibold text-gray-500 hover:border-gray-300 transition-colors">
@@ -370,7 +389,7 @@ export default function EventsPage() {
                 {/* Hint text */}
                 {!selectedDate && (
                   <p className="text-xs text-center text-gray-300">
-                    {lang === "ja" ? "カレンダーの日付にカーソルを合わせると詳細が表示されます" : lang === "ko" ? "달력의 날짜에 마우스를 올려 이벤트를 확인하세요" : "Hover over a date to see event details"}
+                    {lang === "ja" ? "カレンダーの日付をクリックすると詳細が表示されます" : lang === "ko" ? "달력의 날짜를 클릭해 이벤트를 확인하세요" : "Click a date to see event details"}
                   </p>
                 )}
               </div>
