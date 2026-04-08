@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, X, MapPin, Clock, Users } from "lucide-react";
+import { ChevronLeft, ChevronRight, MapPin, Clock, Users } from "lucide-react";
 import Header from "@/components/layout/header";
 import Footer from "@/components/layout/footer";
 import { getEvents, getSettings, eventTitle, eventLocation, type DbEvent } from "@/lib/db";
@@ -37,20 +37,15 @@ export default function EventsPage() {
   const [userId, setUserId] = useState<string | null>(null);
   const [registeredIds, setRegisteredIds] = useState<Set<string>>(new Set());
   const [applyingId, setApplyingId] = useState<string | null>(null);
+  const [showRegForm, setShowRegForm] = useState(false);
 
   const today = new Date();
   const [calYear, setCalYear] = useState(today.getFullYear());
   const [calMonth, setCalMonth] = useState(today.getMonth());
   const todayStr = toDateStr(today.getFullYear(), today.getMonth(), today.getDate());
 
-  // PC: hover popup
-  const [hoverEvent, setHoverEvent] = useState<DbEvent | null>(null);
-  const [hoverPos, setHoverPos] = useState<{ top: number; left: number } | null>(null);
-  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Mobile: click popup
-  const [mobilePopup, setMobilePopup] = useState<DbEvent | null>(null);
-  const [showRegForm, setShowRegForm] = useState(false);
+  // Single selected event — drives both PC right panel and mobile popup
+  const [selectedEvent, setSelectedEvent] = useState<DbEvent | null>(null);
 
   useEffect(() => {
     getEvents().then((data) => { setEvents(data); setLoading(false); });
@@ -93,79 +88,89 @@ export default function EventsPage() {
 
   const calendarDays = getCalendarDays(calYear, calMonth);
 
-  function prevMonth() { if (calMonth === 0) { setCalMonth(11); setCalYear(y => y - 1); } else setCalMonth(m => m - 1); setMobilePopup(null); }
-  function nextMonth() { if (calMonth === 11) { setCalMonth(0); setCalYear(y => y + 1); } else setCalMonth(m => m + 1); setMobilePopup(null); }
-
-  const clearHover = useCallback(() => {
-    hoverTimer.current = setTimeout(() => { setHoverEvent(null); setHoverPos(null); }, 180);
-  }, []);
-  const keepHover = useCallback(() => { if (hoverTimer.current) clearTimeout(hoverTimer.current); }, []);
+  function prevMonth() {
+    if (calMonth === 0) { setCalMonth(11); setCalYear(y => y - 1); } else setCalMonth(m => m - 1);
+    setSelectedEvent(null); setShowRegForm(false);
+  }
+  function nextMonth() {
+    if (calMonth === 11) { setCalMonth(0); setCalYear(y => y + 1); } else setCalMonth(m => m + 1);
+    setSelectedEvent(null); setShowRegForm(false);
+  }
 
   const months = tr.months as unknown as string[];
   const days   = tr.days   as unknown as string[];
 
-  function EventPopupCard({ event, onClose, isMobile }: { event: DbEvent; onClose: () => void; isMobile?: boolean }) {
+  // Right panel / mobile popup content
+  function EventPanel({ event }: { event: DbEvent }) {
     const isRegistered = registeredIds.has(event.id);
     const isApplying = applyingId === event.id;
     return (
-      <div className={isMobile ? "" : ""}>
+      <div className="flex flex-col h-full">
         {/* Image */}
-        <div className="relative h-36">
+        <div className="relative h-44 shrink-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={event.image_url} alt={eventTitle(event, lang)} className="w-full h-full object-cover" />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-          <button onClick={onClose} className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/40 hover:bg-black/60 flex items-center justify-center text-white">
-            <X className="w-3.5 h-3.5" />
-          </button>
-          <h3 className="absolute bottom-0 left-0 p-3 text-sm font-extrabold text-white leading-snug line-clamp-2">
-            {eventTitle(event, lang)}
-          </h3>
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+          <div className="absolute bottom-0 left-0 p-4">
+            <h3 className="text-base font-extrabold text-white leading-snug line-clamp-2">
+              {eventTitle(event, lang)}
+            </h3>
+          </div>
         </div>
+
         {/* Info */}
-        <div className="p-3 space-y-1.5 text-xs text-gray-600">
-          <div className="flex items-start gap-1.5">
-            <Clock className="w-3.5 h-3.5 text-gray-400 shrink-0 mt-0.5" />
+        <div className="p-4 space-y-2.5 text-sm text-gray-600 border-b border-gray-100">
+          <div className="flex items-start gap-2">
+            <Clock className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
             <span>
-              {new Date(event.date + "T00:00:00").toLocaleDateString(localeStr, { month: "short", day: "numeric", weekday: "short" })}
-              {" · "}{event.time_start}{event.time_end ? `〜${event.time_end}` : "〜"}
+              {new Date(event.date + "T00:00:00").toLocaleDateString(localeStr, { year: "numeric", month: "long", day: "numeric", weekday: "short" })}
+              <br />
+              {event.time_start}{event.time_end ? `〜${event.time_end}` : "〜"}
             </span>
           </div>
-          <div className="flex items-start gap-1.5">
-            <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0 mt-0.5" />
-            <span className="line-clamp-1">{eventLocation(event, lang)}</span>
+          <div className="flex items-start gap-2">
+            <MapPin className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
+            <span>{eventLocation(event, lang)}</span>
           </div>
           {event.capacity && (
-            <div className="flex items-center gap-1.5">
-              <Users className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+            <div className="flex items-center gap-2">
+              <Users className="w-4 h-4 text-gray-400 shrink-0" />
               <span>{tr.going} / {event.capacity}{tr.spots}</span>
             </div>
           )}
         </div>
+
         {/* Actions */}
-        <div className="px-3 pb-3">
+        <div className="p-4 mt-auto">
           {!showRegForm ? (
             <div className="flex gap-2">
-              <Link href={`/events/${event.id}`} className="flex-1 text-center rounded-lg border border-gray-200 py-2 text-xs font-semibold text-gray-600 hover:border-primary hover:text-primary transition-colors">
-                {lang === "ja" ? "詳細" : lang === "ko" ? "상세" : "Details"}
+              <Link
+                href={`/events/${event.id}`}
+                className="flex-1 text-center rounded-xl border border-gray-200 py-2.5 text-sm font-semibold text-gray-600 hover:border-primary hover:text-primary transition-colors"
+              >
+                {lang === "ja" ? "詳細を見る" : lang === "ko" ? "자세히 보기" : "Details"}
               </Link>
               {isRegistered ? (
-                <span className="flex-1 text-center rounded-lg bg-green-100 py-2 text-xs font-bold text-green-700">✓ {tr.reg_applied}</span>
+                <span className="flex-1 text-center rounded-xl bg-green-100 py-2.5 text-sm font-bold text-green-700">✓ {tr.reg_applied}</span>
               ) : (
-                <button onClick={() => setShowRegForm(true)} className="flex-1 rounded-lg bg-primary py-2 text-xs font-bold text-white hover:bg-primary/90 transition-colors">
+                <button
+                  onClick={() => setShowRegForm(true)}
+                  className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-bold text-white hover:bg-primary/90 transition-colors"
+                >
                   {tr.reg_apply}
                 </button>
               )}
             </div>
           ) : (
-            <div className="border border-primary/20 rounded-lg p-3 bg-primary/5">
-              <p className="text-xs text-gray-500 mb-3">
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+              <p className="text-xs text-gray-500 mb-4">
                 {lang === "ja" ? "申し込みを確認後、承認メールをお送りします。" : lang === "ko" ? "검토 후 승인 메일을 보내드립니다." : "We'll review and send a confirmation."}
               </p>
               <div className="flex gap-2">
-                <button onClick={() => setShowRegForm(false)} className="flex-1 rounded-lg border border-gray-200 py-2 text-xs font-semibold text-gray-500 hover:border-gray-300 transition-colors">
+                <button onClick={() => setShowRegForm(false)} className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-semibold text-gray-500 hover:border-gray-300 transition-colors">
                   {lang === "ja" ? "戻る" : lang === "ko" ? "취소" : "Back"}
                 </button>
-                <button onClick={() => handleRegister(event)} disabled={isApplying} className="flex-1 rounded-lg bg-primary py-2 text-xs font-bold text-white hover:bg-primary/90 disabled:opacity-60 transition-colors">
+                <button onClick={() => handleRegister(event)} disabled={isApplying} className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-bold text-white hover:bg-primary/90 disabled:opacity-60 transition-colors">
                   {isApplying ? "..." : tr.reg_apply}
                 </button>
               </div>
@@ -199,8 +204,8 @@ export default function EventsPage() {
         <div className="mx-auto max-w-6xl px-4 sm:px-6 py-8">
           <div className="flex flex-col lg:flex-row gap-6">
 
-            {/* ── LEFT (PC) / TOP (Mobile): Calendar ── */}
-            <div className="lg:w-[440px] xl:w-[500px] shrink-0">
+            {/* ── LEFT: Calendar (PC main, Mobile top) ── */}
+            <div className="lg:w-[520px] xl:w-[580px] shrink-0">
               <div className="lg:sticky lg:top-6">
                 <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
 
@@ -209,7 +214,7 @@ export default function EventsPage() {
                     <h2 className="text-xl font-bold text-gray-900">{months[calMonth]} {calYear}</h2>
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => { setCalYear(today.getFullYear()); setCalMonth(today.getMonth()); setMobilePopup(null); }}
+                        onClick={() => { setCalYear(today.getFullYear()); setCalMonth(today.getMonth()); setSelectedEvent(null); }}
                         className="text-xs font-semibold text-gray-500 border border-gray-200 rounded-lg px-2.5 py-1.5 hover:border-primary hover:text-primary transition-colors"
                       >
                         {lang === "ja" ? "今月" : lang === "ko" ? "이번 달" : "Today"}
@@ -230,48 +235,45 @@ export default function EventsPage() {
                     ))}
                   </div>
 
-                  {/* Grid */}
-                  <div className="grid grid-cols-7 gap-1">
+                  {/* Calendar grid */}
+                  <div className="grid grid-cols-7 gap-1.5">
                     {calendarDays.map((cell, i) => {
                       if (!cell.current) return (
-                        <div key={i} className="aspect-square flex items-center justify-center text-sm text-gray-200">{cell.day}</div>
+                        <div key={i} className="aspect-square flex items-center justify-center text-sm text-gray-200">
+                          {cell.day}
+                        </div>
                       );
                       const dateStr = toDateStr(calYear, calMonth, cell.day);
                       const dayEvents = eventsByDate[dateStr] ?? [];
                       const hasEvent = dayEvents.length > 0;
                       const isToday = dateStr === todayStr;
-                      const isActive = mobilePopup && dayEvents.some(e => e.id === mobilePopup.id);
+                      const isSelected = selectedEvent && dayEvents.some(e => e.id === selectedEvent.id);
 
                       return (
                         <button
                           key={i}
-                          // PC hover
-                          onMouseEnter={(e) => {
+                          // PC: hover → show in right panel
+                          onMouseEnter={() => {
                             if (!hasEvent) return;
-                            keepHover();
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            // Position to the right of cell, clamped to viewport
-                            const popupW = 280;
-                            const left = rect.right + 8 + popupW > window.innerWidth
-                              ? rect.left - popupW - 8
-                              : rect.right + 8;
-                            const top = Math.min(rect.top, window.innerHeight - 360);
-                            setHoverEvent(dayEvents[0]);
-                            setHoverPos({ top, left });
+                            setSelectedEvent(dayEvents[0]);
+                            setShowRegForm(false);
                           }}
-                          onMouseLeave={clearHover}
-                          // Mobile click
+                          // Mobile/PC: click → toggle
                           onClick={() => {
                             if (!hasEvent) return;
-                            setMobilePopup(prev => prev?.id === dayEvents[0].id ? null : dayEvents[0]);
+                            setSelectedEvent(prev => prev?.id === dayEvents[0].id ? null : dayEvents[0]);
                             setShowRegForm(false);
                           }}
                           className={`
-                            aspect-square flex items-center justify-center rounded-xl text-sm font-semibold transition-all
-                            ${isActive ? "bg-primary text-white shadow-md scale-105" : ""}
-                            ${!isActive && hasEvent ? "bg-primary/15 text-primary hover:bg-primary/25 cursor-pointer hover:scale-105" : ""}
-                            ${!isActive && isToday && !hasEvent ? "ring-2 ring-primary text-primary" : ""}
-                            ${!isActive && !hasEvent && !isToday ? "text-gray-500 cursor-default" : ""}
+                            aspect-square flex items-center justify-center rounded-xl text-sm font-bold transition-all duration-150
+                            ${isSelected
+                              ? "bg-primary text-white shadow-lg scale-110 ring-2 ring-primary/30"
+                              : hasEvent
+                                ? "bg-primary/20 text-primary border-2 border-primary/40 hover:bg-primary hover:text-white hover:scale-110 hover:shadow-md cursor-pointer"
+                                : isToday
+                                  ? "ring-2 ring-primary text-primary cursor-default"
+                                  : "text-gray-400 cursor-default"
+                            }
                           `}
                         >
                           {cell.day}
@@ -279,92 +281,108 @@ export default function EventsPage() {
                       );
                     })}
                   </div>
-
-                  {/* Mobile popup — below calendar */}
-                  {mobilePopup && (
-                    <div className="lg:hidden mt-4 border-t border-gray-100 pt-4 rounded-xl overflow-hidden border border-gray-100 bg-gray-50">
-                      <EventPopupCard event={mobilePopup} onClose={() => { setMobilePopup(null); setShowRegForm(false); }} isMobile />
-                    </div>
-                  )}
                 </div>
+
+                {/* Mobile: selected event panel — below calendar */}
+                {selectedEvent && (
+                  <div className="lg:hidden mt-4 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                    <EventPanel event={selectedEvent} />
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* ── RIGHT (PC) / BOTTOM (Mobile): Event List ── */}
-            <div className="flex-1 min-w-0">
+            {/* ── RIGHT: Panel (PC only) ── */}
+            <div className="hidden lg:flex flex-col flex-1 min-w-0">
+              <div className="lg:sticky lg:top-6 flex flex-col gap-4">
+
+                {/* Event detail panel — shown on hover/select */}
+                {selectedEvent ? (
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                    <EventPanel event={selectedEvent} />
+                  </div>
+                ) : (
+                  /* Default: upcoming list */
+                  <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+                    <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wide mb-4">
+                      {lang === "ja" ? "開催予定" : lang === "ko" ? "예정된 이벤트" : "Upcoming Events"}
+                    </h2>
+                    {loading ? (
+                      <div className="space-y-3">
+                        {[1,2,3].map(i => <div key={i} className="h-16 rounded-xl bg-gray-100 animate-pulse" />)}
+                      </div>
+                    ) : upcomingEvents.length === 0 ? (
+                      <div className="text-center py-12 text-gray-400">
+                        <div className="text-3xl mb-2">📅</div>
+                        <p className="text-sm">{lang === "ja" ? "予定なし" : lang === "ko" ? "예정 없음" : "No upcoming events"}</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {upcomingEvents.map((event) => (
+                          <Link
+                            key={event.id}
+                            href={`/events/${event.id}`}
+                            className="flex gap-3 items-center p-2.5 rounded-xl hover:bg-gray-50 transition-colors group"
+                          >
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={event.image_url} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0" />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-bold text-gray-800 group-hover:text-primary transition-colors truncate">
+                                {eventTitle(event, lang)}
+                              </p>
+                              <p className="text-xs text-gray-400 mt-0.5">
+                                {new Date(event.date + "T00:00:00").toLocaleDateString(localeStr, { month: "short", day: "numeric", weekday: "short" })}
+                                {" · "}{event.time_start}
+                              </p>
+                            </div>
+                            <ChevronLeft className="w-4 h-4 text-gray-300 rotate-180 shrink-0" />
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Hint text */}
+                {!selectedEvent && (
+                  <p className="text-xs text-center text-gray-300">
+                    {lang === "ja" ? "カレンダーの日付にカーソルを合わせると詳細が表示されます" : lang === "ko" ? "달력의 날짜에 마우스를 올려 이벤트를 확인하세요" : "Hover over a date to see event details"}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {/* Mobile: upcoming list below calendar */}
+            <div className="lg:hidden">
               <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wide mb-3">
                 {lang === "ja" ? "開催予定" : lang === "ko" ? "예정된 이벤트" : "Upcoming Events"}
               </h2>
-
-              {loading ? (
-                <div className="space-y-3">
-                  {[1,2,3].map(i => <div key={i} className="h-24 rounded-2xl bg-gray-100 animate-pulse" />)}
-                </div>
-              ) : upcomingEvents.length === 0 ? (
-                <div className="text-center py-20 text-gray-400">
-                  <div className="text-4xl mb-3">📅</div>
-                  <p className="text-sm">{lang === "ja" ? "予定なし" : lang === "ko" ? "예정 없음" : "No upcoming events"}</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {upcomingEvents.map((event) => {
-                    const isRegistered = registeredIds.has(event.id);
-                    return (
-                      <div key={event.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow overflow-hidden flex">
-                        <Link href={`/events/${event.id}`} className="shrink-0 w-24 sm:w-28">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={event.image_url} alt={eventTitle(event, lang)} className="h-full w-full object-cover" />
-                        </Link>
-                        <div className="flex-1 min-w-0 p-3 flex flex-col justify-between">
-                          <div>
-                            <Link href={`/events/${event.id}`}>
-                              <h3 className="text-sm font-bold text-gray-900 hover:text-primary transition-colors leading-snug line-clamp-2 mb-1">
-                                {eventTitle(event, lang)}
-                              </h3>
-                            </Link>
-                            <p className="text-xs text-gray-500">
-                              🗓 {new Date(event.date + "T00:00:00").toLocaleDateString(localeStr, { month: "short", day: "numeric", weekday: "short" })}
-                              {" · "}{event.time_start}{event.time_end ? `〜${event.time_end}` : "〜"}
-                            </p>
-                            <p className="text-xs text-gray-400 mt-0.5 line-clamp-1">📍 {eventLocation(event, lang)}</p>
-                          </div>
-                          <div className="flex items-center justify-between mt-2">
-                            {event.capacity ? <p className="text-xs text-gray-400">{tr.going} / <span className="font-semibold text-gray-600">{event.capacity}{tr.spots}</span></p> : <span />}
-                            {isRegistered ? (
-                              <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-bold text-green-700">✓ {tr.reg_applied}</span>
-                            ) : (
-                              <button
-                                onClick={() => handleRegister(event)}
-                                disabled={applyingId === event.id}
-                                className="rounded-full bg-primary px-3 py-1 text-xs font-bold text-white hover:bg-primary/90 disabled:opacity-60 transition-colors"
-                              >
-                                {applyingId === event.id ? "..." : tr.reg_apply}
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+              <div className="space-y-2">
+                {upcomingEvents.map((event) => (
+                  <Link
+                    key={event.id}
+                    href={`/events/${event.id}`}
+                    className="flex gap-3 items-center bg-white p-3 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow group"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={event.image_url} alt="" className="w-12 h-12 rounded-lg object-cover shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-gray-800 group-hover:text-primary transition-colors truncate">
+                        {eventTitle(event, lang)}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {new Date(event.date + "T00:00:00").toLocaleDateString(localeStr, { month: "short", day: "numeric", weekday: "short" })}
+                        {" · "}{event.time_start}
+                      </p>
+                    </div>
+                    <ChevronLeft className="w-4 h-4 text-gray-300 rotate-180 shrink-0" />
+                  </Link>
+                ))}
+              </div>
             </div>
 
           </div>
         </div>
-
-        {/* PC Hover Popup — fixed, outside layout flow */}
-        {hoverEvent && hoverPos && (
-          <div
-            className="hidden lg:block fixed z-50 w-[280px] bg-white rounded-2xl border border-gray-100 shadow-2xl overflow-hidden"
-            style={{ top: hoverPos.top, left: hoverPos.left }}
-            onMouseEnter={keepHover}
-            onMouseLeave={clearHover}
-          >
-            <EventPopupCard event={hoverEvent} onClose={() => { setHoverEvent(null); setHoverPos(null); }} />
-          </div>
-        )}
-
       </main>
       <Footer />
     </>
