@@ -36,6 +36,11 @@ yarn-error.log*
 # vercel
 .vercel
 
+# local files
+.playwright-mcp/
+KakaoTalk_*.jpg
+Kimi_Agent_Deployment_v1/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
