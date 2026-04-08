@@ -198,7 +198,7 @@ export async function getAllReviews(): Promise<DbReview[]> {
   const supabase = createClient();
   const { data } = await supabase
     .from("bridge_reviews")
-    .select("*, event:bridge_events!event_id(title_ko,title_ja,title_en), profile:bridge_profiles!bridge_reviews_user_id_profiles_fkey(name,avatar_url)")
+    .select("*, event:bridge_events!event_id(title_ko,title_ja,title_en,date), profile:bridge_profiles!bridge_reviews_user_id_profiles_fkey(name,avatar_url)")
     .order("created_at", { ascending: false });
   return data ?? [];
 }
