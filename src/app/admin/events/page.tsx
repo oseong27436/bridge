@@ -336,45 +336,12 @@ export default function AdminEventsPage() {
       open_chat_qr_url: form.open_chat_qr_url || null,
     };
 
-    // Check if status is being changed to finished (for review reminder)
-    const prevEvent = editId ? events.find((e) => e.id === editId) : null;
-    const becomingFinished = editId && payload.status === "finished" && prevEvent?.status !== "finished";
-
     let eventId = editId;
     if (editId) {
       await supabase.from("bridge_events").update(payload).eq("id", editId);
     } else {
       const { data: inserted } = await supabase.from("bridge_events").insert(payload).select("id").single();
       eventId = inserted?.id ?? null;
-    }
-
-    // Send review reminder to confirmed participants
-    if (becomingFinished && eventId) {
-      const { data: regs } = await supabase
-        .from("bridge_registrations")
-        .select("user_id")
-        .eq("event_id", eventId)
-        .in("status", ["confirmed", "approved", "attended"]);
-      if (regs?.length) {
-        const userIds = regs.map((r: { user_id: string }) => r.user_id);
-        const { data: profiles } = await supabase
-          .from("bridge_profiles")
-          .select("line_user_id")
-          .in("id", userIds)
-          .not("line_user_id", "is", null);
-        const lineUserIds = (profiles ?? []).map((p: { line_user_id: string }) => p.line_user_id).filter(Boolean);
-        if (lineUserIds.length > 0) {
-          await fetch("/api/notify", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              lineUserIds,
-              action: "review",
-              eventTitle: payload.title_ja || payload.title_ko || payload.title_en,
-            }),
-          });
-        }
-      }
     }
 
     // sync bridge_event_images
@@ -390,6 +357,40 @@ export default function AdminEventsPage() {
     setSaving(false);
     setShowForm(false);
     load();
+  }
+
+  const [sendingReview, setSendingReview] = useState<string | null>(null);
+
+  async function handleSendReviewReminder(e: DbEvent) {
+    if (!confirm(lang === "ko" ? "참가자들에게 리뷰 유도 메시지를 발송할까요?" : "Send review reminder to participants?")) return;
+    setSendingReview(e.id);
+    const supabase = createClient();
+    const { data: regs } = await supabase
+      .from("bridge_registrations")
+      .select("user_id")
+      .eq("event_id", e.id)
+      .in("status", ["confirmed", "approved", "attended"]);
+    if (regs?.length) {
+      const userIds = regs.map((r: { user_id: string }) => r.user_id);
+      const { data: profiles } = await supabase
+        .from("bridge_profiles")
+        .select("line_user_id")
+        .in("id", userIds)
+        .not("line_user_id", "is", null);
+      const lineUserIds = (profiles ?? []).map((p: { line_user_id: string }) => p.line_user_id).filter(Boolean);
+      if (lineUserIds.length > 0) {
+        await fetch("/api/notify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            lineUserIds,
+            action: "review",
+            eventTitle: e.title_ko || e.title_ja || e.title_en,
+          }),
+        });
+      }
+    }
+    setSendingReview(null);
   }
 
   async function handleDelete(id: string) {
@@ -665,6 +666,15 @@ export default function AdminEventsPage() {
                       <p className="font-bold text-gray-900 text-sm leading-snug truncate">{title}</p>
                     </div>
                     <div className="flex gap-1.5 shrink-0">
+                      {e.status === "finished" && (
+                        <button
+                          onClick={() => handleSendReviewReminder(e)}
+                          disabled={sendingReview === e.id}
+                          className="rounded-lg border border-purple-200 bg-purple-50 px-2.5 py-1 text-xs font-semibold text-purple-600 hover:bg-purple-100 disabled:opacity-50 transition-colors"
+                        >
+                          {sendingReview === e.id ? "..." : "📝 " + (lang === "ko" ? "리뷰 유도" : "Review")}
+                        </button>
+                      )}
                       <button onClick={() => openEdit(e)} className="rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-semibold text-gray-600 hover:bg-gray-50">
                         {tr.admin_edit}
                       </button>
