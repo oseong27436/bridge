@@ -1,14 +1,32 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import { getAllEvents, getEventImages, type DbEvent, type DbEventImage } from "@/lib/db";
 import { useLanguage } from "@/context/language-context";
 import { translations } from "@/lib/i18n";
-import { MessageSquare, Send, Save, RotateCcw, ChevronDown, Inbox, CornerDownRight, Users, Globe } from "lucide-react";
+import { MessageSquare, Send, Save, RotateCcw, ChevronDown, Inbox, CornerDownRight, Users, Globe, LayoutGrid, RefreshCw, Trash2, Upload } from "lucide-react";
 
 type Action = "applied" | "approved" | "rejected";
-type Tab = "inbox" | "broadcast" | "template";
+type Tab = "inbox" | "broadcast" | "template" | "richmenu";
+
+type RichMenuAction =
+  | { type: "uri"; label: string; uri: string }
+  | { type: "message"; label: string; text: string }
+
+type RichMenuArea = {
+  bounds: { x: number; y: number; width: number; height: number }
+  action: RichMenuAction
+}
+
+type RichMenu = {
+  richMenuId: string
+  name: string
+  chatBarText: string
+  size: { width: number; height: number }
+  selected: boolean
+  areas: RichMenuArea[]
+}
 type TargetType = "all" | "event";
 
 interface LineMessage {
@@ -52,6 +70,16 @@ export default function AdminLinePage() {
   const [replyingId, setReplyingId] = useState<string | null>(null);
   const [replyTexts, setReplyTexts] = useState<Record<string, string>>({});
   const [sendingReply, setSendingReply] = useState<string | null>(null);
+
+  // richmenu
+  const [richMenus, setRichMenus] = useState<RichMenu[]>([]);
+  const [loadingRichMenus, setLoadingRichMenus] = useState(false);
+  const [editingMenu, setEditingMenu] = useState<{ chatBarText: string; areas: RichMenuArea[] } | null>(null);
+  const [originalMenuId, setOriginalMenuId] = useState<string | null>(null);
+  const [newImageDataUrl, setNewImageDataUrl] = useState<string | null>(null);
+  const [savingRichMenu, setSavingRichMenu] = useState(false);
+  const [richMenuSaved, setRichMenuSaved] = useState(false);
+  const richMenuImageRef = useRef<HTMLInputElement>(null);
 
   // broadcast
   const [events, setEvents] = useState<DbEvent[]>([]);
@@ -181,6 +209,85 @@ export default function AdminLinePage() {
     );
   }
 
+  async function loadRichMenus() {
+    setLoadingRichMenus(true);
+    const res = await fetch('/api/line/richmenu');
+    const data = await res.json();
+    const menus: RichMenu[] = data.richmenus ?? [];
+    setRichMenus(menus);
+    if (menus.length > 0 && !editingMenu) {
+      const m = menus[0];
+      setOriginalMenuId(m.richMenuId);
+      setEditingMenu({ chatBarText: m.chatBarText, areas: m.areas });
+    }
+    setLoadingRichMenus(false);
+  }
+
+  useEffect(() => {
+    if (tab === "richmenu") loadRichMenus();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
+  async function handleSaveRichMenu() {
+    if (!editingMenu) return;
+    setSavingRichMenu(true);
+    await fetch('/api/line/richmenu', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chatBarText: editingMenu.chatBarText,
+        areas: editingMenu.areas,
+        reuseImageFromId: newImageDataUrl ? null : originalMenuId,
+        imageDataUrl: newImageDataUrl ?? null,
+      }),
+    });
+    setNewImageDataUrl(null);
+    setRichMenuSaved(true);
+    setTimeout(() => setRichMenuSaved(false), 2500);
+    await loadRichMenus();
+    setSavingRichMenu(false);
+  }
+
+  async function handleDeleteRichMenu(richMenuId: string) {
+    if (!confirm(lang === "ja" ? "リッチメニューを削除しますか？" : lang === "ko" ? "리치메뉴를 삭제하시겠습니까?" : "Delete this rich menu?")) return;
+    await fetch('/api/line/richmenu', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ richMenuId }),
+    });
+    setEditingMenu(null);
+    setOriginalMenuId(null);
+    await loadRichMenus();
+  }
+
+  function handleRichMenuImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setNewImageDataUrl(ev.target?.result as string);
+    reader.readAsDataURL(file);
+    if (richMenuImageRef.current) richMenuImageRef.current.value = "";
+  }
+
+  function updateArea(index: number, patch: Partial<RichMenuAction> & { type?: "uri" | "message" }) {
+    if (!editingMenu) return;
+    setEditingMenu((prev) => {
+      if (!prev) return prev;
+      const areas = prev.areas.map((a, i) => {
+        if (i !== index) return a;
+        const currentAction = a.action;
+        if (patch.type && patch.type !== currentAction.type) {
+          const newAction: RichMenuAction = patch.type === "uri"
+            ? { type: "uri", label: currentAction.label, uri: "" }
+            : { type: "message", label: currentAction.label, text: "" };
+          return { ...a, action: newAction };
+        }
+        return { ...a, action: { ...currentAction, ...patch } as RichMenuAction };
+      });
+      return { ...prev, areas };
+    });
+  }
+
   async function handleSaveAction(action: Action) {
     setSavingAction(action);
     const supabase = createClient();
@@ -281,6 +388,11 @@ export default function AdminLinePage() {
         <button onClick={() => setTab("template")}
           className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === "template" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
           {tr.line_template_tab}
+        </button>
+        <button onClick={() => setTab("richmenu")}
+          className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === "richmenu" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}>
+          <LayoutGrid className="h-3.5 w-3.5" />
+          {lang === "ja" ? "リッチメニュー" : lang === "ko" ? "리치메뉴" : "Rich Menu"}
         </button>
       </div>
 
@@ -548,6 +660,182 @@ export default function AdminLinePage() {
           )}
         </div>
       )}
+      {/* ── 리치메뉴 탭 ── */}
+      {tab === "richmenu" && (
+        <div className="space-y-4">
+          {loadingRichMenus ? (
+            <div className="space-y-3">{[1,2].map((i) => <div key={i} className="h-24 bg-gray-100 rounded-2xl animate-pulse" />)}</div>
+          ) : richMenus.length === 0 && !editingMenu ? (
+            <div className="bg-white rounded-2xl border border-gray-200 p-10 text-center text-gray-400 text-sm">
+              <LayoutGrid className="h-8 w-8 mx-auto mb-3 opacity-30" />
+              <p>{lang === "ja" ? "リッチメニューがありません" : lang === "ko" ? "리치메뉴가 없습니다" : "No rich menu found"}</p>
+            </div>
+          ) : editingMenu && (
+            <>
+              {/* Chat bar text */}
+              <div className="bg-white rounded-2xl border border-gray-200 p-5">
+                <p className="text-sm font-bold text-gray-700 mb-3">
+                  {lang === "ja" ? "チャットバーテキスト" : lang === "ko" ? "채팅바 텍스트" : "Chat Bar Text"}
+                </p>
+                <input
+                  type="text"
+                  value={editingMenu.chatBarText}
+                  onChange={(e) => setEditingMenu((prev) => prev ? { ...prev, chatBarText: e.target.value } : prev)}
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-sm outline-none focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/10 transition"
+                />
+              </div>
+
+              {/* Layout preview + area editors */}
+              <div className="bg-white rounded-2xl border border-gray-200 p-5">
+                <p className="text-sm font-bold text-gray-700 mb-4">
+                  {lang === "ja" ? "エリア設定" : lang === "ko" ? "영역 설정" : "Areas"}
+                </p>
+
+                {/* Visual layout preview */}
+                <div className="flex rounded-xl overflow-hidden border border-gray-200 mb-5" style={{ height: 100 }}>
+                  {editingMenu.areas.map((area, i) => {
+                    const totalW = 1600;
+                    const widthPct = `${(area.bounds.width / totalW) * 100}%`;
+                    const colors = ["bg-primary/10", "bg-blue-50", "bg-green-50"];
+                    const label = area.action.label || `Area ${i + 1}`;
+                    return (
+                      <div
+                        key={i}
+                        className={`${colors[i % colors.length]} flex items-center justify-center text-xs font-bold text-gray-600 border-r border-gray-200 last:border-r-0`}
+                        style={{ width: widthPct }}
+                      >
+                        {i + 1}. {label}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Area edit cards */}
+                <div className="space-y-3">
+                  {editingMenu.areas.map((area, i) => (
+                    <div key={i} className="rounded-xl border border-gray-200 p-4 space-y-3">
+                      <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Area {i + 1}</p>
+
+                      {/* Label */}
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                          {lang === "ja" ? "ラベル" : lang === "ko" ? "라벨" : "Label"}
+                        </label>
+                        <input
+                          type="text"
+                          value={area.action.label}
+                          onChange={(e) => updateArea(i, { label: e.target.value })}
+                          className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2 text-sm outline-none focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/10 transition"
+                        />
+                      </div>
+
+                      {/* Action type */}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => updateArea(i, { type: "uri" })}
+                          className={`flex-1 rounded-xl border-2 py-2 text-xs font-bold transition-colors ${area.action.type === "uri" ? "border-primary bg-primary/5 text-primary" : "border-gray-200 text-gray-500 hover:border-gray-300"}`}
+                        >
+                          URL 이동
+                        </button>
+                        <button
+                          onClick={() => updateArea(i, { type: "message" })}
+                          className={`flex-1 rounded-xl border-2 py-2 text-xs font-bold transition-colors ${area.action.type === "message" ? "border-primary bg-primary/5 text-primary" : "border-gray-200 text-gray-500 hover:border-gray-300"}`}
+                        >
+                          메시지 전송
+                        </button>
+                      </div>
+
+                      {/* URI or message text */}
+                      {area.action.type === "uri" ? (
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-600 mb-1.5">URL</label>
+                          <input
+                            type="url"
+                            value={area.action.uri}
+                            onChange={(e) => updateArea(i, { uri: e.target.value })}
+                            placeholder="https://"
+                            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2 text-sm outline-none focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/10 transition"
+                          />
+                        </div>
+                      ) : (
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                            {lang === "ja" ? "送信テキスト" : lang === "ko" ? "전송 텍스트" : "Message text"}
+                          </label>
+                          <input
+                            type="text"
+                            value={area.action.text}
+                            onChange={(e) => updateArea(i, { text: e.target.value })}
+                            className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2 text-sm outline-none focus:border-primary focus:bg-white focus:ring-2 focus:ring-primary/10 transition"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Image upload */}
+              <div className="bg-white rounded-2xl border border-gray-200 p-5">
+                <p className="text-sm font-bold text-gray-700 mb-1">
+                  {lang === "ja" ? "メニュー背景画像" : lang === "ko" ? "메뉴 배경 이미지" : "Menu Background Image"}
+                </p>
+                <p className="text-xs text-gray-400 mb-3">
+                  {lang === "ja" ? "変更しない場合は既存の画像をそのまま使用します。推奨: 2500×1686px または 1200×810px" : lang === "ko" ? "변경하지 않으면 기존 이미지를 그대로 사용합니다. 권장: 2500×1686px 또는 1200×810px" : "Leave empty to reuse existing image. Recommended: 2500×1686px or 1200×810px"}
+                </p>
+                <div className="flex items-center gap-3">
+                  {newImageDataUrl && (
+                    <div className="relative">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={newImageDataUrl} alt="" className="h-16 rounded-lg border border-gray-200 object-cover" />
+                      <button onClick={() => setNewImageDataUrl(null)} className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center">×</button>
+                    </div>
+                  )}
+                  <button
+                    onClick={() => richMenuImageRef.current?.click()}
+                    className="flex items-center gap-2 rounded-xl border-2 border-dashed border-gray-300 px-4 py-3 text-xs font-semibold text-gray-400 hover:border-primary hover:text-primary transition-colors"
+                  >
+                    <Upload className="h-3.5 w-3.5" />
+                    {newImageDataUrl ? (lang === "ko" ? "변경" : "Change") : (lang === "ko" ? "이미지 업로드" : lang === "ja" ? "画像をアップロード" : "Upload image")}
+                  </button>
+                  <input ref={richMenuImageRef} type="file" accept="image/jpeg,image/png" className="hidden" onChange={handleRichMenuImageUpload} />
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => loadRichMenus()}
+                  className="flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-3 text-sm font-semibold text-gray-500 hover:bg-gray-50 transition-colors"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  {lang === "ja" ? "再読込" : lang === "ko" ? "새로고침" : "Refresh"}
+                </button>
+                {originalMenuId && (
+                  <button
+                    onClick={() => handleDeleteRichMenu(originalMenuId)}
+                    className="flex items-center gap-2 rounded-xl border border-red-200 px-4 py-3 text-sm font-semibold text-red-500 hover:bg-red-50 transition-colors"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    {lang === "ja" ? "削除" : lang === "ko" ? "삭제" : "Delete"}
+                  </button>
+                )}
+                <button
+                  onClick={handleSaveRichMenu}
+                  disabled={savingRichMenu}
+                  className={`flex-1 flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold transition-colors disabled:opacity-60 ${
+                    richMenuSaved ? "bg-green-100 text-green-700" : "bg-primary text-white hover:bg-primary/90"
+                  }`}
+                >
+                  <Save className="h-4 w-4" />
+                  {savingRichMenu ? "..." : richMenuSaved ? "✓ Saved" : (lang === "ja" ? "保存して適用" : lang === "ko" ? "저장 & 적용" : "Save & Apply")}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+
     </div>
   );
 }
