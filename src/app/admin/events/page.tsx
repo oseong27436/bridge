@@ -5,7 +5,10 @@ import { createClient } from "@/lib/supabase";
 import { getEventImages, type DbEvent } from "@/lib/db";
 import { useLanguage } from "@/context/language-context";
 import { translations } from "@/lib/i18n";
-import { ChevronDown, ChevronUp, Users, Banknote, MapPin, Calendar, X } from "lucide-react";
+import { ChevronDown, ChevronUp, Users, Banknote, MapPin, Calendar, X, Settings, Plus, Trash2 } from "lucide-react";
+
+type PresetLocation = { name: string; address: string; url: string };
+type CategoryItem = { value: string; label: string };
 
 async function compressImage(file: File, maxWidth: number, quality: number): Promise<Blob> {
   return new Promise((resolve) => {
@@ -126,6 +129,16 @@ export default function AdminEventsPage() {
 
   const supabaseClient = createClient();
 
+  // Settings modal
+  const [showSettings, setShowSettings] = useState(false);
+  const [categories, setCategories] = useState<CategoryItem[]>([
+    { value: "meetup", label: "Meetup" }, { value: "party", label: "Party" },
+    { value: "sports", label: "Sports" }, { value: "food", label: "Food" },
+    { value: "culture", label: "Culture" }, { value: "other", label: "Other" },
+  ]);
+  const [presetLocations, setPresetLocations] = useState<PresetLocation[]>([]);
+  const [savingSettings, setSavingSettings] = useState(false);
+
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [registrations, setRegistrations] = useState<Record<string, Registration[]>>({});
   const [regCounts, setRegCounts] = useState<Record<string, number>>({});
@@ -147,6 +160,28 @@ export default function AdminEventsPage() {
       (counts ?? []).forEach((r) => { map[r.event_id] = (map[r.event_id] ?? 0) + 1; });
       setRegCounts(map);
     }
+    // Load settings
+    const { data: settings } = await supabase
+      .from("bridge_settings")
+      .select("key, value")
+      .in("key", ["event_categories", "event_locations"]);
+    (settings ?? []).forEach((s: { key: string; value: string }) => {
+      try {
+        if (s.key === "event_categories") setCategories(JSON.parse(s.value));
+        if (s.key === "event_locations") setPresetLocations(JSON.parse(s.value));
+      } catch { /* ignore */ }
+    });
+  }
+
+  async function saveSettings() {
+    setSavingSettings(true);
+    const supabase = createClient();
+    await supabase.from("bridge_settings").upsert([
+      { key: "event_categories", value: JSON.stringify(categories) },
+      { key: "event_locations", value: JSON.stringify(presetLocations) },
+    ], { onConflict: "key" });
+    setSavingSettings(false);
+    setShowSettings(false);
   }
 
   useEffect(() => { load(); }, []);
@@ -402,19 +437,139 @@ export default function AdminEventsPage() {
   const statusLabel = (s: string) => s === "approved" ? tr.reg_status_approved : s === "rejected" ? tr.reg_status_rejected : tr.reg_status_pending;
   const statusColor = (s: string) => s === "approved" ? "bg-green-100 text-green-700" : s === "rejected" ? "bg-red-100 text-red-600" : "bg-yellow-100 text-yellow-700";
 
-  const catOptions = ["meetup","party","sports","food","culture","other"].map((c) => ({
-    value: c, label: (tr[`cat_${c}` as keyof typeof tr] as string) ?? c,
+  const catOptions = categories.map((c) => ({
+    value: c.value, label: (tr[`cat_${c.value}` as keyof typeof tr] as string) ?? c.label,
   }));
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">{tr.admin_events}</h1>
-        <button onClick={openNew}
-          className="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-primary/90 transition-colors">
-          {tr.admin_new_event}
-        </button>
+        <div className="flex gap-2">
+          <button onClick={() => setShowSettings(true)}
+            className="flex items-center gap-1.5 rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
+            <Settings className="h-4 w-4" />
+            {lang === "ko" ? "설정" : lang === "ja" ? "設定" : "Settings"}
+          </button>
+          <button onClick={openNew}
+            className="rounded-xl bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-primary/90 transition-colors">
+            {tr.admin_new_event}
+          </button>
+        </div>
       </div>
+
+      {/* ── Settings Modal ── */}
+      {showSettings && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-black/50 md:items-center md:justify-center">
+          <div className="flex flex-col bg-white w-full h-full md:h-auto md:max-h-[90vh] md:max-w-lg md:rounded-2xl md:shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
+              <h2 className="text-base font-extrabold text-gray-900 flex items-center gap-2">
+                <Settings className="h-4 w-4" />
+                {lang === "ko" ? "이벤트 설정" : lang === "ja" ? "イベント設定" : "Event Settings"}
+              </h2>
+              <button onClick={() => setShowSettings(false)} className="p-1.5 rounded-xl text-gray-400 hover:bg-gray-100"><X className="h-5 w-5" /></button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
+              {/* Categories */}
+              <div>
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
+                  {lang === "ko" ? "카테고리" : lang === "ja" ? "カテゴリー" : "Categories"}
+                </p>
+                <div className="space-y-2">
+                  {categories.map((cat, i) => (
+                    <div key={i} className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="value (영문, 소문자)"
+                        value={cat.value}
+                        onChange={(e) => setCategories((prev) => prev.map((c, j) => j === i ? { ...c, value: e.target.value } : c))}
+                        className="w-32 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-primary focus:bg-white"
+                      />
+                      <input
+                        type="text"
+                        placeholder="표시 이름"
+                        value={cat.label}
+                        onChange={(e) => setCategories((prev) => prev.map((c, j) => j === i ? { ...c, label: e.target.value } : c))}
+                        className="flex-1 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-primary focus:bg-white"
+                      />
+                      <button onClick={() => setCategories((prev) => prev.filter((_, j) => j !== i))}
+                        className="p-2 rounded-xl text-red-400 hover:bg-red-50 transition-colors">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => setCategories((prev) => [...prev, { value: "", label: "" }])}
+                    className="flex items-center gap-1.5 text-sm text-primary font-semibold hover:underline mt-1"
+                  >
+                    <Plus className="h-4 w-4" />
+                    {lang === "ko" ? "카테고리 추가" : lang === "ja" ? "追加" : "Add category"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Preset Locations */}
+              <div>
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
+                  {lang === "ko" ? "자주 가는 장소" : lang === "ja" ? "よく使う場所" : "Preset Locations"}
+                </p>
+                <div className="space-y-3">
+                  {presetLocations.map((loc, i) => (
+                    <div key={i} className="rounded-xl border border-gray-200 p-3 space-y-2">
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder={lang === "ko" ? "장소 이름" : "場所の名前"}
+                          value={loc.name}
+                          onChange={(e) => setPresetLocations((prev) => prev.map((l, j) => j === i ? { ...l, name: e.target.value } : l))}
+                          className="flex-1 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-primary focus:bg-white"
+                        />
+                        <button onClick={() => setPresetLocations((prev) => prev.filter((_, j) => j !== i))}
+                          className="p-2 rounded-xl text-red-400 hover:bg-red-50 transition-colors">
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <input
+                        type="text"
+                        placeholder={lang === "ko" ? "주소" : "住所"}
+                        value={loc.address}
+                        onChange={(e) => setPresetLocations((prev) => prev.map((l, j) => j === i ? { ...l, address: e.target.value } : l))}
+                        className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-primary focus:bg-white"
+                      />
+                      <input
+                        type="url"
+                        placeholder="Google Maps URL"
+                        value={loc.url}
+                        onChange={(e) => setPresetLocations((prev) => prev.map((l, j) => j === i ? { ...l, url: e.target.value } : l))}
+                        className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-primary focus:bg-white"
+                      />
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => setPresetLocations((prev) => [...prev, { name: "", address: "", url: "" }])}
+                    className="flex items-center gap-1.5 text-sm text-primary font-semibold hover:underline"
+                  >
+                    <Plus className="h-4 w-4" />
+                    {lang === "ko" ? "장소 추가" : lang === "ja" ? "追加" : "Add location"}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="shrink-0 px-5 py-4 border-t border-gray-100 bg-white flex gap-3">
+              <button onClick={() => setShowSettings(false)}
+                className="flex-1 rounded-xl border border-gray-200 py-3 text-sm font-semibold text-gray-600 hover:bg-gray-50">
+                {tr.admin_cancel}
+              </button>
+              <button onClick={saveSettings} disabled={savingSettings}
+                className="flex-1 rounded-xl bg-primary py-3 text-sm font-bold text-white hover:bg-primary/90 disabled:opacity-60">
+                {savingSettings ? tr.admin_saving : tr.admin_save}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Edit / New Form Modal ── */}
       {showForm && (
@@ -462,6 +617,25 @@ export default function AdminEventsPage() {
               </div>
 
               <SectionLabel>{lang === "ja" ? "場所" : lang === "ko" ? "장소" : "Location"}</SectionLabel>
+              {presetLocations.length > 0 && (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+                    {lang === "ko" ? "자주 가는 장소에서 선택" : lang === "ja" ? "よく使う場所から選択" : "Pick from presets"}
+                  </label>
+                  <div className="flex gap-2 flex-wrap">
+                    {presetLocations.map((loc, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => setForm((f) => ({ ...f, location_type: "address", location: loc.address, location_url: loc.url }))}
+                        className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:border-primary hover:text-primary transition-colors"
+                      >
+                        📍 {loc.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <Select label={tr.location_type} name="location_type"
                 options={[
                   { value: "address", label: tr.location_address },
