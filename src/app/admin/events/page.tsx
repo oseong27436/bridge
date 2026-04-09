@@ -35,7 +35,7 @@ const EMPTY_FORM = {
   date: "",
   time_start: "19:00",
   time_end: "",
-  location_type: "address",
+  location_type: "preset",
   location: "",
   location_url: "",
   image_url: "",
@@ -138,6 +138,9 @@ export default function AdminEventsPage() {
   ]);
   const [presetLocations, setPresetLocations] = useState<PresetLocation[]>([]);
   const [savingSettings, setSavingSettings] = useState(false);
+  // Draft state for settings modal (prevents re-render focus loss)
+  const [draftCategories, setDraftCategories] = useState<CategoryItem[]>([]);
+  const [draftLocations, setDraftLocations] = useState<PresetLocation[]>([]);
 
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [registrations, setRegistrations] = useState<Record<string, Registration[]>>({});
@@ -177,9 +180,11 @@ export default function AdminEventsPage() {
     setSavingSettings(true);
     const supabase = createClient();
     await supabase.from("bridge_settings").upsert([
-      { key: "event_categories", value: JSON.stringify(categories) },
-      { key: "event_locations", value: JSON.stringify(presetLocations) },
+      { key: "event_categories", value: JSON.stringify(draftCategories) },
+      { key: "event_locations", value: JSON.stringify(draftLocations) },
     ], { onConflict: "key" });
+    setCategories(draftCategories);
+    setPresetLocations(draftLocations);
     setSavingSettings(false);
     setShowSettings(false);
   }
@@ -272,7 +277,7 @@ export default function AdminEventsPage() {
   async function openEdit(e: DbEvent) {
     setEditId(e.id);
     const loc = e.location_ko || e.location_ja || e.location_en;
-    const locType = loc === "__tba__" ? "tba" : e.location_url && !loc ? "link" : "address";
+    const locType = loc === "__tba__" ? "tba" : e.location_url && !loc ? "link" : "preset";
     setForm({
       title: e.title_ko || e.title_ja || e.title_en,
       description: e.description_ko || e.description_ja || e.description_en,
@@ -282,7 +287,7 @@ export default function AdminEventsPage() {
       time_start: e.time_start,
       time_end: e.time_end ?? "",
       location_type: locType,
-      location: locType === "address" ? loc : "",
+      location: locType === "preset" ? loc : "",
       location_url: e.location_url ?? "",
       image_url: e.image_url,
       capacity: e.capacity?.toString() ?? "",
@@ -446,7 +451,7 @@ export default function AdminEventsPage() {
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-900">{tr.admin_events}</h1>
         <div className="flex gap-2">
-          <button onClick={() => setShowSettings(true)}
+          <button onClick={() => { setDraftCategories(categories.map(c => ({...c}))); setDraftLocations(presetLocations.map(l => ({...l}))); setShowSettings(true); }}
             className="flex items-center gap-1.5 rounded-xl border border-gray-200 px-3 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
             <Settings className="h-4 w-4" />
             {lang === "ko" ? "설정" : lang === "ja" ? "設定" : "Settings"}
@@ -477,30 +482,30 @@ export default function AdminEventsPage() {
                   {lang === "ko" ? "카테고리" : lang === "ja" ? "カテゴリー" : "Categories"}
                 </p>
                 <div className="space-y-2">
-                  {categories.map((cat, i) => (
+                  {draftCategories.map((cat, i) => (
                     <div key={i} className="flex gap-2">
                       <input
                         type="text"
                         placeholder="value (영문, 소문자)"
                         value={cat.value}
-                        onChange={(e) => setCategories((prev) => prev.map((c, j) => j === i ? { ...c, value: e.target.value } : c))}
+                        onChange={(e) => { const v = e.target.value; setDraftCategories((prev) => prev.map((c, j) => j === i ? { ...c, value: v } : c)); }}
                         className="w-32 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-primary focus:bg-white"
                       />
                       <input
                         type="text"
                         placeholder="표시 이름"
                         value={cat.label}
-                        onChange={(e) => setCategories((prev) => prev.map((c, j) => j === i ? { ...c, label: e.target.value } : c))}
+                        onChange={(e) => { const v = e.target.value; setDraftCategories((prev) => prev.map((c, j) => j === i ? { ...c, label: v } : c)); }}
                         className="flex-1 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-primary focus:bg-white"
                       />
-                      <button onClick={() => setCategories((prev) => prev.filter((_, j) => j !== i))}
+                      <button onClick={() => setDraftCategories((prev) => prev.filter((_, j) => j !== i))}
                         className="p-2 rounded-xl text-red-400 hover:bg-red-50 transition-colors">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                   ))}
                   <button
-                    onClick={() => setCategories((prev) => [...prev, { value: "", label: "" }])}
+                    onClick={() => setDraftCategories((prev) => [...prev, { value: "", label: "" }])}
                     className="flex items-center gap-1.5 text-sm text-primary font-semibold hover:underline mt-1"
                   >
                     <Plus className="h-4 w-4" />
@@ -515,17 +520,17 @@ export default function AdminEventsPage() {
                   {lang === "ko" ? "자주 가는 장소" : lang === "ja" ? "よく使う場所" : "Preset Locations"}
                 </p>
                 <div className="space-y-3">
-                  {presetLocations.map((loc, i) => (
+                  {draftLocations.map((loc, i) => (
                     <div key={i} className="rounded-xl border border-gray-200 p-3 space-y-2">
                       <div className="flex gap-2">
                         <input
                           type="text"
                           placeholder={lang === "ko" ? "장소 이름" : "場所の名前"}
                           value={loc.name}
-                          onChange={(e) => setPresetLocations((prev) => prev.map((l, j) => j === i ? { ...l, name: e.target.value } : l))}
+                          onChange={(e) => { const v = e.target.value; setDraftLocations((prev) => prev.map((l, j) => j === i ? { ...l, name: v } : l)); }}
                           className="flex-1 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-primary focus:bg-white"
                         />
-                        <button onClick={() => setPresetLocations((prev) => prev.filter((_, j) => j !== i))}
+                        <button onClick={() => setDraftLocations((prev) => prev.filter((_, j) => j !== i))}
                           className="p-2 rounded-xl text-red-400 hover:bg-red-50 transition-colors">
                           <Trash2 className="h-4 w-4" />
                         </button>
@@ -534,20 +539,20 @@ export default function AdminEventsPage() {
                         type="text"
                         placeholder={lang === "ko" ? "주소" : "住所"}
                         value={loc.address}
-                        onChange={(e) => setPresetLocations((prev) => prev.map((l, j) => j === i ? { ...l, address: e.target.value } : l))}
+                        onChange={(e) => { const v = e.target.value; setDraftLocations((prev) => prev.map((l, j) => j === i ? { ...l, address: v } : l)); }}
                         className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-primary focus:bg-white"
                       />
                       <input
                         type="url"
                         placeholder="Google Maps URL"
                         value={loc.url}
-                        onChange={(e) => setPresetLocations((prev) => prev.map((l, j) => j === i ? { ...l, url: e.target.value } : l))}
+                        onChange={(e) => { const v = e.target.value; setDraftLocations((prev) => prev.map((l, j) => j === i ? { ...l, url: v } : l)); }}
                         className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm outline-none focus:border-primary focus:bg-white"
                       />
                     </div>
                   ))}
                   <button
-                    onClick={() => setPresetLocations((prev) => [...prev, { name: "", address: "", url: "" }])}
+                    onClick={() => setDraftLocations((prev) => [...prev, { name: "", address: "", url: "" }])}
                     className="flex items-center gap-1.5 text-sm text-primary font-semibold hover:underline"
                   >
                     <Plus className="h-4 w-4" />
@@ -617,42 +622,58 @@ export default function AdminEventsPage() {
               </div>
 
               <SectionLabel>{lang === "ja" ? "場所" : lang === "ko" ? "장소" : "Location"}</SectionLabel>
-              {presetLocations.length > 0 && (
-                <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1.5">
-                    {lang === "ko" ? "자주 가는 장소에서 선택" : lang === "ja" ? "よく使う場所から選択" : "Pick from presets"}
-                  </label>
-                  <div className="flex gap-2 flex-wrap">
-                    {presetLocations.map((loc, i) => (
-                      <button
-                        key={i}
-                        type="button"
-                        onClick={() => setForm((f) => ({ ...f, location_type: "address", location: loc.address, location_url: loc.url }))}
-                        className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:border-primary hover:text-primary transition-colors"
-                      >
-                        📍 {loc.name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <Select label={tr.location_type} name="location_type"
-                options={[
-                  { value: "address", label: tr.location_address },
+              {/* Location type tabs */}
+              <div className="flex gap-2">
+                {[
+                  { value: "preset", label: lang === "ko" ? "장소 선택" : lang === "ja" ? "場所を選択" : "Select" },
                   { value: "link", label: tr.location_link },
                   { value: "tba", label: tr.location_tba },
-                ]}
-                form={form}
-                setForm={(fn) => setForm((f) => {
-                  const next = typeof fn === "function" ? fn(f) : fn;
-                  return { ...next, location: "", location_url: "" };
-                })} />
-              {form.location_type === "address" && (
-                <div className="pt-2">
-                  <Field label={tr.field_location} name="location" form={form} setForm={setForm} />
+                ].map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, location_type: opt.value, location: "", location_url: "" }))}
+                    className={`flex-1 rounded-xl border-2 py-2 text-xs font-bold transition-colors ${
+                      form.location_type === opt.value
+                        ? "border-primary bg-primary/5 text-primary"
+                        : "border-gray-200 text-gray-500 hover:border-gray-300"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Preset location list */}
+              {form.location_type === "preset" && (
+                <div className="pt-1 space-y-1.5">
+                  {presetLocations.length === 0 ? (
+                    <p className="text-xs text-gray-400 py-2 text-center">
+                      {lang === "ko" ? "설정에서 자주 가는 장소를 먼저 추가해주세요." : "Add preset locations in Settings first."}
+                    </p>
+                  ) : (
+                    presetLocations.map((loc, i) => {
+                      const isSelected = form.location === loc.address && form.location_url === loc.url;
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => setForm((f) => ({ ...f, location: loc.address, location_url: loc.url }))}
+                          className={`w-full text-left rounded-xl border-2 px-4 py-3 transition-colors ${
+                            isSelected ? "border-primary bg-primary/5" : "border-gray-200 hover:border-gray-300 bg-gray-50"
+                          }`}
+                        >
+                          <p className={`text-sm font-bold ${isSelected ? "text-primary" : "text-gray-700"}`}>📍 {loc.name}</p>
+                          {loc.address && <p className="text-xs text-gray-400 mt-0.5 truncate">{loc.address}</p>}
+                        </button>
+                      );
+                    })
+                  )}
                 </div>
               )}
-              {(form.location_type === "address" || form.location_type === "link") && (
+
+              {/* Link type */}
+              {form.location_type === "link" && (
                 <div className="pt-2">
                   <Field label={tr.field_map_url} name="location_url" placeholder="https://maps.google.com/..." form={form} setForm={setForm} />
                 </div>
