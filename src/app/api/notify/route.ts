@@ -11,7 +11,7 @@ const DEFAULTS: Record<string, string> = {
   rejected:
     '「{eventTitle}」への参加申請は今回見送りとなりました。またのご参加をお待ちしています。\n\n---\n\nYour registration for "{eventTitle}" was not approved this time. Hope to see you at future events!',
   review:
-    '🙏 本日はBridgeイベント「{eventTitle}」にご参加いただきありがとうございました！\n\nぜひ感想をポストイットに残してください 📝\n{reviewUrl}\n\n---\n\n🙏 오늘 Bridge 이벤트 「{eventTitle}」에 참가해 주셔서 감사합니다!\n\n포스트잇으로 후기를 남겨주세요 📝\n{reviewUrl}',
+    '🙏 本日はBridgeイベント「{eventTitle}」にご参加いただきありがとうございました！\n\nぜひ感想をポストイットに残してください 📝\n{reviewUrl}\n\n---\n\n🙏 Thank you for joining the Bridge event "{eventTitle}" today!\n\nPlease leave your thoughts on a post-it 📝\n{reviewUrl}',
 }
 
 async function buildMessage(
