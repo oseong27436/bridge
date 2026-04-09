@@ -209,16 +209,28 @@ export default function AdminLinePage() {
     );
   }
 
+  const DEFAULT_2COL_AREAS: RichMenuArea[] = [
+    { bounds: { x: 0, y: 0, width: 800, height: 910 }, action: { type: "uri", label: "ホーム", uri: "" } },
+    { bounds: { x: 800, y: 0, width: 800, height: 910 }, action: { type: "uri", label: "イベント", uri: "" } },
+  ];
+
   async function loadRichMenus() {
     setLoadingRichMenus(true);
     const res = await fetch('/api/line/richmenu');
     const data = await res.json();
     const menus: RichMenu[] = data.richmenus ?? [];
     setRichMenus(menus);
-    if (menus.length > 0 && !editingMenu) {
+    if (menus.length > 0) {
       const m = menus[0];
       setOriginalMenuId(m.richMenuId);
-      setEditingMenu({ chatBarText: m.chatBarText, areas: m.areas });
+      // 기존이 2분할이면 그대로, 아니면 2분할 기본값으로
+      if (m.areas.length === 2) {
+        setEditingMenu({ chatBarText: m.chatBarText, areas: m.areas });
+      } else {
+        setEditingMenu({ chatBarText: m.chatBarText, areas: DEFAULT_2COL_AREAS });
+      }
+    } else {
+      setEditingMenu({ chatBarText: "メニュー", areas: DEFAULT_2COL_AREAS });
     }
     setLoadingRichMenus(false);
   }
