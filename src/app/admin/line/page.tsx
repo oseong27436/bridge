@@ -7,7 +7,7 @@ import { useLanguage } from "@/context/language-context";
 import { translations } from "@/lib/i18n";
 import { MessageSquare, Send, Save, RotateCcw, ChevronDown, Inbox, CornerDownRight, Users, Globe, LayoutGrid, RefreshCw, Trash2, Upload } from "lucide-react";
 
-type Action = "applied" | "approved" | "rejected";
+type Action = "applied" | "approved" | "rejected" | "review";
 type Tab = "inbox" | "broadcast" | "template" | "richmenu";
 
 type RichMenuAction =
@@ -47,12 +47,15 @@ const DEFAULTS: Record<Action, string> = {
     "🎉 イベント「{eventTitle}」への参加が承認されました！当日お会いできるのを楽しみにしています。{openChatLine}\n\n---\n\n🎉 Your registration for \"{eventTitle}\" has been approved! See you there!",
   rejected:
     "「{eventTitle}」への参加申請は今回見送りとなりました。またのご参加をお待ちしています。\n\n---\n\nYour registration for \"{eventTitle}\" was not approved this time. Hope to see you at future events!",
+  review:
+    "🙏 本日はBridgeイベント「{eventTitle}」にご参加いただきありがとうございました！\n\nぜひ感想をポストイットに残してください 📝\n{reviewUrl}\n\n---\n\n🙏 오늘 Bridge 이벤트 「{eventTitle}」에 참가해 주셔서 감사합니다!\n\n포스트잇으로 후기를 남겨주세요 📝\n{reviewUrl}",
 };
 
 const ACTION_COLORS: Record<Action, string> = {
   applied: "bg-yellow-100 text-yellow-700",
   approved: "bg-green-100 text-green-700",
   rejected: "bg-red-100 text-red-600",
+  review: "bg-purple-100 text-purple-700",
 };
 
 export default function AdminLinePage() {
@@ -98,6 +101,7 @@ export default function AdminLinePage() {
     applied: { ja: "申請完了", ko: "신청 완료", en: "Applied" },
     approved: { ja: "承認", ko: "승인", en: "Approved" },
     rejected: { ja: "拒否", ko: "거절", en: "Rejected" },
+    review: { ja: "レビュー誘導", ko: "리뷰 유도", en: "Review Request" },
   };
 
   useEffect(() => {
@@ -634,13 +638,14 @@ export default function AdminLinePage() {
             <ul className="space-y-0.5">
               <li><code className="bg-amber-100 px-1 rounded">{"{eventTitle}"}</code> — {lang === "ja" ? "イベント名" : lang === "en" ? "event title" : "이벤트명"}</li>
               <li><code className="bg-amber-100 px-1 rounded">{"{openChatLine}"}</code> — {lang === "ja" ? "オープンチャットリンク（approved専用）" : lang === "en" ? "open chat link (approved only)" : "오픈채팅 링크 (approved 전용)"}</li>
+              <li><code className="bg-amber-100 px-1 rounded">{"{reviewUrl}"}</code> — {lang === "ja" ? "レビュー記入ページURL（review専用）" : lang === "en" ? "review page URL (review only)" : "리뷰 작성 페이지 URL (review 전용)"}</li>
             </ul>
           </div>
 
           {loadingTemplates ? (
             <div className="space-y-3">{[1,2,3].map((i) => <div key={i} className="h-32 bg-gray-100 rounded-2xl animate-pulse" />)}</div>
           ) : (
-            (["applied", "approved", "rejected"] as Action[]).map((action) => (
+            (["applied", "approved", "rejected", "review"] as Action[]).map((action) => (
               <div key={action} className="bg-white rounded-2xl border border-gray-200 p-5">
                 <div className="flex items-center justify-between mb-4">
                   <span className={`rounded-full px-3 py-0.5 text-xs font-bold ${ACTION_COLORS[action]}`}>
