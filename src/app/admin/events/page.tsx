@@ -336,12 +336,45 @@ export default function AdminEventsPage() {
       open_chat_qr_url: form.open_chat_qr_url || null,
     };
 
+    // Check if status is being changed to finished (for review reminder)
+    const prevEvent = editId ? events.find((e) => e.id === editId) : null;
+    const becomingFinished = editId && payload.status === "finished" && prevEvent?.status !== "finished";
+
     let eventId = editId;
     if (editId) {
       await supabase.from("bridge_events").update(payload).eq("id", editId);
     } else {
       const { data: inserted } = await supabase.from("bridge_events").insert(payload).select("id").single();
       eventId = inserted?.id ?? null;
+    }
+
+    // Send review reminder to confirmed participants
+    if (becomingFinished && eventId) {
+      const { data: regs } = await supabase
+        .from("bridge_registrations")
+        .select("user_id")
+        .eq("event_id", eventId)
+        .in("status", ["confirmed", "approved", "attended"]);
+      if (regs?.length) {
+        const userIds = regs.map((r: { user_id: string }) => r.user_id);
+        const { data: profiles } = await supabase
+          .from("bridge_profiles")
+          .select("line_user_id")
+          .in("id", userIds)
+          .not("line_user_id", "is", null);
+        const lineUserIds = (profiles ?? []).map((p: { line_user_id: string }) => p.line_user_id).filter(Boolean);
+        if (lineUserIds.length > 0) {
+          await fetch("/api/notify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              lineUserIds,
+              action: "review",
+              eventTitle: payload.title_ja || payload.title_ko || payload.title_en,
+            }),
+          });
+        }
+      }
     }
 
     // sync bridge_event_images

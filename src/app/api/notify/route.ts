@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://bridge-green-theta.vercel.app'
+
 const DEFAULTS: Record<string, string> = {
   applied:
     '📋 イベント「{eventTitle}」への参加申請を受け付けました。承認をお待ちください。\n\n---\n\n📋 Your registration for "{eventTitle}" has been received. Please wait for approval.',
@@ -8,10 +10,12 @@ const DEFAULTS: Record<string, string> = {
     '🎉 イベント「{eventTitle}」への参加が承認されました！当日お会いできるのを楽しみにしています。{openChatLine}\n\n---\n\n🎉 Your registration for "{eventTitle}" has been approved! See you there!',
   rejected:
     '「{eventTitle}」への参加申請は今回見送りとなりました。またのご参加をお待ちしています。\n\n---\n\nYour registration for "{eventTitle}" was not approved this time. Hope to see you at future events!',
+  review:
+    '🙏 本日はBridgeイベント「{eventTitle}」にご参加いただきありがとうございました！\n\nぜひ感想をポストイットに残してください 📝\n{reviewUrl}\n\n---\n\n🙏 오늘 Bridge 이벤트 「{eventTitle}」에 참가해 주셔서 감사합니다!\n\n포스트잇으로 후기를 남겨주세요 📝\n{reviewUrl}',
 }
 
 async function buildMessage(
-  action: 'applied' | 'approved' | 'rejected',
+  action: string,
   eventTitle: string,
   openChatUrl?: string | null
 ): Promise<string> {
@@ -19,6 +23,7 @@ async function buildMessage(
     openChatUrl && action === 'approved'
       ? `\n\n📢 オープンチャットに参加する: ${openChatUrl}\n📢 Join our open chat: ${openChatUrl}`
       : ''
+  const reviewUrl = `${SITE_URL}/my/reservations`
 
   // Try to fetch template from DB (lang='all')
   let template: string | null = null
@@ -43,12 +48,28 @@ async function buildMessage(
   return body
     .replaceAll('{eventTitle}', eventTitle)
     .replaceAll('{openChatLine}', openChatLine)
+    .replaceAll('{reviewUrl}', reviewUrl)
 }
 
 export async function POST(request: Request) {
   try {
-    const { lineUserId, email, action, eventTitle, openChatUrl } = await request.json()
+    const { lineUserId, lineUserIds, email, action, eventTitle, openChatUrl } = await request.json()
     const text = await buildMessage(action, eventTitle, openChatUrl)
+
+    // Bulk send (for review reminders)
+    if (lineUserIds?.length) {
+      const token = process.env.LINE_MESSAGING_ACCESS_TOKEN
+      if (token) {
+        await Promise.all(lineUserIds.map((uid: string) =>
+          fetch('https://api.line.me/v2/bot/message/push', {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ to: uid, messages: [{ type: 'text', text }] }),
+          })
+        ))
+      }
+      return NextResponse.json({ ok: true })
+    }
 
     // LINE push notification
     if (lineUserId && process.env.LINE_MESSAGING_ACCESS_TOKEN) {
