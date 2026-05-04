@@ -4,6 +4,8 @@
 
 A multilingual community event platform for the Osaka international scene — browse events, leave memories on a cork board, and discover local hosts.
 
+🔗 **[Live Demo](https://bridge-green-theta.vercel.app)**
+
 ---
 
 ## Features
